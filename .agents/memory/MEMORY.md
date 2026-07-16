@@ -1,0 +1,1 @@
+- [Django SGN RDC](django-sgn-setup.md) — App Django dans school_app/ avec workflow "SGN Django" sur port 8000; ne pas utiliser le monorepo Node.js pour cette app.

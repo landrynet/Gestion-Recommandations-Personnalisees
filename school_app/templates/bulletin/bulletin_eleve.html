@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Bulletin — {{ eleve.nom_complet }}{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'bulletin_list' %}">Bulletins</a></li>
+<li class="breadcrumb-item"><a href="{% url 'bulletin_classe' modele.pk %}">{{ modele.classe }}</a></li>
+<li class="breadcrumb-item active">{{ eleve.nom_complet }}</li>
+{% endblock %}
+{% block content %}
+<div class="page-header no-print">
+  <h1 class="page-title">Bulletin de l'élève</h1>
+  <div class="d-flex gap-2">
+    <button onclick="window.print()" class="btn btn-primary btn-sm"><i class="bi bi-printer me-1"></i>Imprimer</button>
+    <a href="{% url 'bulletin_classe' modele.pk %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Retour</a>
+  </div>
+</div>
+
+<div class="bulletin-container mx-auto">
+  <!-- En-tête officielle -->
+  <div class="bulletin-header">
+    <div style="display:flex;align-items:center;justify-content:center;gap:20px">
+      <div style="text-align:left">🇨🇩</div>
+      <div>
+        <div class="fw-bold" style="font-size:0.9rem">REPUBLIQUE DEMOCRATIQUE DU CONGO</div>
+        <div style="font-size:0.78rem">MINISTERE DE L'ENSEIGNEMENT PRIMAIRE, SECONDAIRE ET PROFESSIONNEL</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Infos école -->
+  <table style="width:100%;border-collapse:collapse;font-size:0.72rem">
+    <tr>
+      <td style="padding:4px 8px;width:50%;border-right:1px solid #000">
+        <div><strong>PROVINCE :</strong> {{ school_info.province }}</div>
+        <div><strong>VILLE :</strong> {{ school_info.ville }} &nbsp;|&nbsp; <strong>COMMUNE :</strong> {{ school_info.commune }}</div>
+        <div><strong>ÉCOLE :</strong> {{ school_info.nom }}</div>
+        <div><strong>CODE :</strong> {{ school_info.code }}</div>
+      </td>
+      <td style="padding:4px 8px;width:50%">
+        <div><strong>ÉLÈVE :</strong> {{ eleve.nom_complet }} &nbsp;&nbsp; <strong>SEXE :</strong> {{ eleve.get_sexe_display }}</div>
+        <div><strong>NÉ(E) À :</strong> {{ eleve.lieu_naissance }} &nbsp; LE {{ eleve.date_naissance|date:"d/m/Y" }}</div>
+        <div><strong>CLASSE :</strong> {{ modele.classe }}</div>
+        <div><strong>N° PERM. :</strong> {{ eleve.matricule }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Titre -->
+  <div style="text-align:center;border-top:1px solid #000;border-bottom:1px solid #000;padding:4px;font-weight:bold;font-size:0.8rem">
+    BULLETIN — {{ modele.classe }} — ANNÉE SCOLAIRE {{ modele.annee_scolaire }}
+  </div>
+
+  <!-- Tableau des notes -->
+  <table class="bulletin-table">
+    <thead>
+      <tr>
+        <th rowspan="3" style="width:28%;text-align:left">BRANCHES</th>
+        <th colspan="4">PREMIER SEMESTRE</th>
+        <th colspan="4">SECOND SEMESTRE</th>
+        <th rowspan="3">T.G.</th>
+        <th colspan="2">EXAM DE REPÊCHAGE</th>
+      </tr>
+      <tr>
+        <th colspan="2">TR. JOURNAL.</th>
+        <th rowspan="2">EXAM</th>
+        <th rowspan="2">TOT.</th>
+        <th colspan="2">TR. JOURNAL.</th>
+        <th rowspan="2">EXAM</th>
+        <th rowspan="2">TOT.</th>
+        <th rowspan="2">%</th>
+        <th rowspan="2">SIGN. PROF</th>
+      </tr>
+      <tr>
+        <th>1ère P</th><th>2ème P</th>
+        <th>3ème P</th><th>4ème P</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% regroup matieres_data by matiere.maxima as groups %}
+      {% for group in groups %}
+      <tr class="maxima-row">
+        <td class="branche-cell">MAXIMA</td>
+        <td>{{ group.grouper }}</td>
+        <td>{{ group.grouper }}</td>
+        <td>{{ group.grouper|add:group.grouper }}</td>
+        <td>{{ group.grouper|add:group.grouper|add:group.grouper|add:group.grouper }}</td>
+        <td>{{ group.grouper }}</td>
+        <td>{{ group.grouper }}</td>
+        <td>{{ group.grouper|add:group.grouper }}</td>
+        <td>{{ group.grouper|add:group.grouper|add:group.grouper|add:group.grouper }}</td>
+        <td>{{ group.grouper|add:group.grouper|add:group.grouper|add:group.grouper|add:group.grouper|add:group.grouper|add:group.grouper|add:group.grouper }}</td>
+        <td></td><td></td>
+      </tr>
+      {% for row in group.list %}
+      <tr>
+        <td class="branche-cell">{{ row.matiere.nom }}</td>
+        <td>{{ row.n1p|default:"" }}</td>
+        <td>{{ row.n2p|default:"" }}</td>
+        <td>{{ row.nexam1|default:"" }}</td>
+        <td>{% if row.n1p or row.n2p or row.nexam1 %}{{ row.tot_s1 }}{% endif %}</td>
+        <td>{{ row.n3p|default:"" }}</td>
+        <td>{{ row.n4p|default:"" }}</td>
+        <td>{{ row.nexam2|default:"" }}</td>
+        <td>{% if row.n3p or row.n4p or row.nexam2 %}{{ row.tot_s2 }}{% endif %}</td>
+        <td><strong>{{ row.tg }}</strong></td>
+        <td>{{ row.repechage|default:"" }}</td>
+        <td></td>
+      </tr>
+      {% endfor %}
+      {% endfor %}
+      <!-- Totaux -->
+      <tr class="maxima-row">
+        <td class="branche-cell" colspan="11">MAXIMA GÉNÉRAUX</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td class="branche-cell fw-bold">TOTAUX</td>
+        <td colspan="3"></td>
+        <td colspan="1"></td>
+        <td colspan="3"></td>
+        <td colspan="1"></td>
+        <td><strong>{{ total_obtenu }} / {{ total_max }}</strong></td>
+        <td colspan="2"></td>
+      </tr>
+      <tr>
+        <td class="branche-cell fw-bold">POURCENTAGE</td>
+        <td colspan="4"></td>
+        <td colspan="4"></td>
+        <td><strong>{{ pourcentage }}%</strong></td>
+        <td colspan="2"></td>
+      </tr>
+      <tr>
+        <td class="branche-cell fw-bold">PLACE / NBRE ÉLÈVES</td>
+        <td>/</td><td>/</td><td>/</td><td>/</td>
+        <td>/</td><td>/</td><td>/</td><td>/</td>
+        <td><strong>{{ classement }} / {{ nb_eleves }}</strong></td>
+        <td colspan="2"></td>
+      </tr>
+      <tr>
+        <td class="branche-cell">APPLICATION</td>
+        <td colspan="11"></td>
+      </tr>
+      <tr>
+        <td class="branche-cell">CONDUITE</td>
+        <td colspan="11"></td>
+      </tr>
+      <tr>
+        <td class="branche-cell">SIGN. DU RESPONSABLE</td>
+        <td colspan="11"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Pied de page -->
+  <div style="padding:6px 8px;font-size:0.65rem;border-top:1px solid #000">
+    <div>- L'élève ne pourra passer dans la classe supérieure s'il n'a subi avec succès un examen de repêchage en.....................</div>
+    <div>- L'élève passe dans la classe supérieure (1)</div>
+    <div>- L'élève double sa classe (1)</div>
+    <div>- L'élève a échoué et est à réorienter vers.................. (1)</div>
+    <br>
+    <div style="display:flex;justify-content:space-between;margin-top:8px">
+      <div>Signature de l'élève</div>
+      <div>Sceau de l'école</div>
+      <div>Le Chef d'Établissement<br>Nom et Signature</div>
+    </div>
+    <div style="text-align:right;margin-top:4px;font-size:0.6rem">IGE/P.S/005</div>
+  </div>
+</div>
+{% endblock %}

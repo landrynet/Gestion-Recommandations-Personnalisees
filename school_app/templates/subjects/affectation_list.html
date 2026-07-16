@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Affectations matières-classes{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'matiere_list' %}">Matières</a></li>
+<li class="breadcrumb-item active">Affectations</li>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><i class="bi bi-link-45deg text-primary me-2"></i>Affectations matières → classes</h1>
+  <a href="{% url 'affectation_create' %}" class="btn btn-primary"><i class="bi bi-plus me-1"></i>Nouvelle affectation</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <select name="classe" class="form-select form-select-sm">
+          <option value="">Toutes les classes</option>
+          {% for c in classes %}
+          <option value="{{ c.pk }}" {% if classe_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrer</button>
+        <a href="{% url 'affectation_list' %}" class="btn btn-outline-secondary btn-sm ms-1">Tout</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">{{ affectations.count }} affectation{{ affectations.count|pluralize }}</div>
+  <div class="card-body p-0">
+    <table class="table table-hover">
+      <thead><tr><th>Matière</th><th>Maxima</th><th>Classe</th><th>Enseignant</th><th class="text-end">Actions</th></tr></thead>
+      <tbody>
+        {% for a in affectations %}
+        <tr>
+          <td class="fw-medium">{{ a.matiere }}</td>
+          <td><span class="badge bg-secondary">{{ a.matiere.maxima }}</span></td>
+          <td>{{ a.classe }}</td>
+          <td>{% if a.enseignant %}{{ a.enseignant.nom_complet }}{% else %}<span class="text-muted">Non assigné</span>{% endif %}</td>
+          <td class="text-end">
+            <a href="{% url 'affectation_update' a.pk %}" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'affectation_delete' a.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Aucune affectation</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

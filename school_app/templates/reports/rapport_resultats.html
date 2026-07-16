@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}Rapport des résultats{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><i class="bi bi-trophy-fill text-primary me-2"></i>Rapport des résultats</h1>
+  <div class="d-flex gap-2">
+    {% if resultats %}
+    <button onclick="window.print()" class="btn btn-outline-secondary btn-sm no-print"><i class="bi bi-printer me-1"></i>Imprimer</button>
+    {% endif %}
+    <a href="{% url 'rapport_eleves' %}" class="btn btn-outline-primary btn-sm no-print">Rapport élèves</a>
+    <a href="{% url 'rapport_enseignants' %}" class="btn btn-outline-success btn-sm no-print">Rapport enseignants</a>
+  </div>
+</div>
+
+<div class="card mb-3 no-print">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label small mb-1">Sélectionner un modèle de bulletin</label>
+        <select name="modele" class="form-select form-select-sm">
+          <option value="">-- Choisir --</option>
+          {% for b in bulletins %}<option value="{{ b.pk }}" {% if modele_id == b.pk|stringformat:"s" %}selected{% endif %}>{{ b }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm">Afficher</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if resultats %}
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th>Rang</th><th>Élève</th><th>Total obtenu</th><th>Total max.</th><th>Pourcentage</th><th>Mention</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in resultats %}
+        <tr class="{% if r.pourcentage >= 50 %}table-success{% else %}table-danger{% endif %} bg-opacity-25">
+          <td><strong>#{{ r.rang }}</strong></td>
+          <td class="fw-medium">{{ r.eleve.nom_complet }}</td>
+          <td>{{ r.total }}</td>
+          <td>{{ r.max }}</td>
+          <td><strong>{{ r.pourcentage }}%</strong></td>
+          <td>
+            <span class="badge {% if r.pourcentage >= 80 %}bg-success{% elif r.pourcentage >= 60 %}bg-info{% elif r.pourcentage >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+              {{ r.mention }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

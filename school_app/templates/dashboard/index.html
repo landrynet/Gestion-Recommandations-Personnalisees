@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% block title %}Tableau de bord{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Tableau de bord</li>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Tableau de bord</h1>
+  {% if annee_active %}
+  <span class="badge bg-primary fs-6">
+    <i class="bi bi-calendar3 me-1"></i>Année scolaire {{ annee_active }}
+  </span>
+  {% else %}
+  <a href="{% url 'annee_create' %}" class="btn btn-warning btn-sm">
+    <i class="bi bi-exclamation-triangle me-1"></i>Aucune année active — Créer
+  </a>
+  {% endif %}
+</div>
+
+<!-- Statistiques -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-4">
+    <a href="{% url 'student_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+        <div>
+          <div class="stat-value">{{ nb_eleves }}</div>
+          <div class="stat-label">Élèves inscrits</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-sm-6 col-xl-4">
+    <a href="{% url 'teacher_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon green"><i class="bi bi-person-badge-fill"></i></div>
+        <div>
+          <div class="stat-value">{{ nb_enseignants }}</div>
+          <div class="stat-label">Enseignants</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-sm-6 col-xl-4">
+    <a href="{% url 'classe_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon purple"><i class="bi bi-building-fill"></i></div>
+        <div>
+          <div class="stat-value">{{ nb_classes }}</div>
+          <div class="stat-label">Classes actives</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-sm-6 col-xl-4">
+    <a href="{% url 'matiere_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon orange"><i class="bi bi-book-fill"></i></div>
+        <div>
+          <div class="stat-value">{{ nb_matieres }}</div>
+          <div class="stat-label">Matières</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-sm-6 col-xl-4">
+    <a href="{% url 'bulletin_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon teal"><i class="bi bi-file-earmark-text-fill"></i></div>
+        <div>
+          <div class="stat-value">{{ nb_bulletins }}</div>
+          <div class="stat-label">Modèles de bulletins</div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Derniers élèves -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people-fill text-primary me-2"></i>Derniers élèves inscrits</span>
+        <a href="{% url 'student_list' %}" class="btn btn-sm btn-outline-primary">Voir tout</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Élève</th>
+              <th>Matricule</th>
+              <th>Classe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in derniers_eleves %}
+            <tr>
+              <td><a href="{% url 'student_detail' s.pk %}" class="text-decoration-none fw-medium">{{ s.nom_complet }}</a></td>
+              <td><code class="small">{{ s.matricule }}</code></td>
+              <td>{% if s.classe %}<span class="badge bg-light text-dark border">{{ s.classe }}</span>{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-3">Aucun élève enregistré</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Classes actives -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-building-fill text-primary me-2"></i>Classes de l'année en cours</span>
+        <a href="{% url 'classe_list' %}" class="btn btn-sm btn-outline-primary">Voir tout</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr><th>Classe</th><th>Section</th><th>Élèves</th></tr>
+          </thead>
+          <tbody>
+            {% for c in dernieres_classes %}
+            <tr>
+              <td class="fw-medium">{{ c.nom }}</td>
+              <td>{{ c.section }}</td>
+              <td><span class="badge bg-primary rounded-pill">{{ c.eleves.count }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-3">Aucune classe pour cette année</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Actions rapides -->
+{% if user.is_prefet %}
+<div class="card mt-4">
+  <div class="card-header"><i class="bi bi-lightning-fill text-warning me-2"></i>Actions rapides</div>
+  <div class="card-body d-flex flex-wrap gap-2">
+    <a href="{% url 'student_create' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-plus me-1"></i>Nouvel élève</a>
+    <a href="{% url 'teacher_create' %}" class="btn btn-outline-success btn-sm"><i class="bi bi-person-badge me-1"></i>Nouvel enseignant</a>
+    <a href="{% url 'classe_create' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-building me-1"></i>Nouvelle classe</a>
+    <a href="{% url 'matiere_create' %}" class="btn btn-outline-warning btn-sm"><i class="bi bi-book me-1"></i>Nouvelle matière</a>
+    <a href="{% url 'bulletin_create' %}" class="btn btn-outline-info btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nouveau bulletin</a>
+    <a href="{% url 'affectation_create' %}" class="btn btn-outline-dark btn-sm"><i class="bi bi-link me-1"></i>Affecter matière</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

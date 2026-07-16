@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}{{ titre }}{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'bulletin_list' %}">Bulletins</a></li>
+<li class="breadcrumb-item active">{{ titre }}</li>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">{{ titre }}</h1>
+  <a href="{% url 'bulletin_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Retour</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header fw-bold"><i class="bi bi-sliders me-1"></i>Configuration du modèle</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {% if not obj %}
+          <div class="mb-3">
+            <label class="form-label">Classe *</label>
+            <select name="classe" class="form-select" required>
+              <option value="">-- Sélectionner --</option>
+              {% for c in classes %}<option value="{{ c.pk }}">{{ c }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Année scolaire *</label>
+            <select name="annee_scolaire" class="form-select" required>
+              {% for a in annees %}<option value="{{ a.pk }}" {% if annee and a.pk == annee.pk %}selected{% endif %}>{{ a }}</option>{% endfor %}
+            </select>
+          </div>
+          {% else %}
+          <div class="alert alert-info py-2 small mb-3">
+            <strong>{{ obj.classe }}</strong> — {{ obj.annee_scolaire }}
+          </div>
+          {% endif %}
+
+          <!-- MAXIMA 20 -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="fw-bold mb-0" style="color:#D97706">
+                <i class="bi bi-square-fill me-1" style="font-size:0.6rem;color:#D97706"></i>BLOC MAXIMA 20
+              </h6>
+              <small class="text-muted">TG max = 160</small>
+            </div>
+            {% for m in matieres_20 %}
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="checkbox" name="mat_{{ m.pk }}" id="mat_{{ m.pk }}" value="1"
+                {% if m.pk in selected_ids %}checked{% endif %}>
+              <label class="form-check-label small" for="mat_{{ m.pk }}">{{ m.nom }}</label>
+            </div>
+            {% empty %}<p class="text-muted small">Aucune matière MAXIMA 20. <a href="{% url 'matiere_create' %}">En créer une</a></p>{% endfor %}
+          </div>
+
+          <!-- MAXIMA 30 -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="fw-bold mb-0" style="color:#0891B2">
+                <i class="bi bi-square-fill me-1" style="font-size:0.6rem;color:#0891B2"></i>BLOC MAXIMA 30
+              </h6>
+              <small class="text-muted">TG max = 240</small>
+            </div>
+            {% for m in matieres_30 %}
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="checkbox" name="mat_{{ m.pk }}" id="mat_{{ m.pk }}" value="1"
+                {% if m.pk in selected_ids %}checked{% endif %}>
+              <label class="form-check-label small" for="mat_{{ m.pk }}">{{ m.nom }}</label>
+            </div>
+            {% empty %}<p class="text-muted small">Aucune matière MAXIMA 30. <a href="{% url 'matiere_create' %}">En créer une</a></p>{% endfor %}
+          </div>
+
+          <!-- MAXIMA 60 -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="fw-bold mb-0" style="color:#DC2626">
+                <i class="bi bi-square-fill me-1" style="font-size:0.6rem;color:#DC2626"></i>BLOC MAXIMA 60
+              </h6>
+              <small class="text-muted">TG max = 480</small>
+            </div>
+            {% for m in matieres_60 %}
+            <div class="form-check mb-1">
+              <input class="form-check-input" type="checkbox" name="mat_{{ m.pk }}" id="mat_{{ m.pk }}" value="1"
+                {% if m.pk in selected_ids %}checked{% endif %}>
+              <label class="form-check-label small" for="mat_{{ m.pk }}">{{ m.nom }}</label>
+            </div>
+            {% empty %}<p class="text-muted small">Aucune matière MAXIMA 60. <a href="{% url 'matiere_create' %}">En créer une</a></p>{% endfor %}
+          </div>
+
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Enregistrer</button>
+            <a href="{% url 'bulletin_list' %}" class="btn btn-outline-secondary">Annuler</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aperçu -->
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header fw-bold"><i class="bi bi-eye me-1"></i>Aperçu du bulletin officiel RDC</div>
+      <div class="card-body p-2" style="overflow-x:auto">
+        <div class="bulletin-container">
+          <div class="bulletin-header" style="padding:6px;text-align:center">
+            <div style="font-weight:bold;font-size:0.85rem">REPUBLIQUE DEMOCRATIQUE DU CONGO</div>
+            <div style="font-size:0.75rem">MINISTERE DE L'ENSEIGNEMENT PRIMAIRE, SECONDAIRE ET PROFESSIONNEL</div>
+          </div>
+          <table class="bulletin-table">
+            <thead>
+              <tr>
+                <th rowspan="3" style="text-align:left;width:30%">BRANCHES</th>
+                <th colspan="4">PREMIER SEMESTRE</th>
+                <th colspan="4">SECOND SEMESTRE</th>
+                <th rowspan="3">T.G.</th>
+                <th colspan="2">EXAM. REPÊCHAGE</th>
+              </tr>
+              <tr>
+                <th colspan="2">TR. JOURNAL.</th><th rowspan="2">EXAM</th><th rowspan="2">TOT.</th>
+                <th colspan="2">TR. JOURNAL.</th><th rowspan="2">EXAM</th><th rowspan="2">TOT.</th>
+                <th rowspan="2">%</th><th rowspan="2">SIGN.</th>
+              </tr>
+              <tr><th>1ère P</th><th>2ème P</th><th>3ème P</th><th>4ème P</th></tr>
+            </thead>
+            <tbody>
+              <tr class="maxima-row">
+                <td class="branche-cell">MAXIMA</td>
+                <td>20</td><td>20</td><td>40</td><td>80</td>
+                <td>20</td><td>20</td><td>40</td><td>80</td>
+                <td><strong>160</strong></td><td></td><td></td>
+              </tr>
+              {% for m in matieres_20 %}
+              <tr><td class="branche-cell">{{ m.nom }}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+              {% endfor %}
+              <tr class="maxima-row">
+                <td class="branche-cell">MAXIMA</td>
+                <td>30</td><td>30</td><td>60</td><td>120</td>
+                <td>30</td><td>30</td><td>60</td><td>120</td>
+                <td><strong>240</strong></td><td></td><td></td>
+              </tr>
+              {% for m in matieres_30 %}
+              <tr><td class="branche-cell">{{ m.nom }}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+              {% endfor %}
+              <tr class="maxima-row">
+                <td class="branche-cell">MAXIMA</td>
+                <td>60</td><td>60</td><td>120</td><td>240</td>
+                <td>60</td><td>60</td><td>120</td><td>240</td>
+                <td><strong>480</strong></td><td></td><td></td>
+              </tr>
+              {% for m in matieres_60 %}
+              <tr><td class="branche-cell">{{ m.nom }}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+              {% endfor %}
+              <tr class="maxima-row"><td class="branche-cell fw-bold" colspan="12">MAXIMA GÉNÉRAUX</td></tr>
+              <tr><td class="branche-cell">TOTAUX</td><td colspan="11"></td></tr>
+              <tr><td class="branche-cell">POURCENTAGE</td><td colspan="11"></td></tr>
+              <tr><td class="branche-cell">PLACE/NBRE ÉLÈVES</td><td>/</td><td>/</td><td>/</td><td>/</td><td>/</td><td>/</td><td>/</td><td>/</td><td>/</td><td></td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
