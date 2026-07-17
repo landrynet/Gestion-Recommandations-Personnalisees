@@ -3,20 +3,34 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-rdcschool-2024-secret-key-change-in-production'
+# En production : définir la variable d'environnement DJANGO_SECRET_KEY
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-rdcschool-2024-secret-key-change-in-production'
+)
 
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
-# Autoriser les domaines Replit et localhost pour les requêtes POST (CSRF)
+# CSRF : domaines autorisés
+# En production sur PythonAnywhere, définir la variable DJANGO_SITE_URL
+# Exemple : export DJANGO_SITE_URL=https://educ.pythonanywhere.com
+_site_url = os.environ.get('DJANGO_SITE_URL', '').strip()
+
 CSRF_TRUSTED_ORIGINS = [
     'https://*.replit.dev',
     'https://*.spock.replit.dev',
     'https://*.replit.app',
-    'http://localhost:8002',
-    'http://localhost:80',
+    'http://localhost:8000',
+    'http://localhost:8008',
 ]
+
+if _site_url:
+    # Ajouter automatiquement l'URL de production (ex: https://educ.pythonanywhere.com)
+    if not _site_url.startswith(('http://', 'https://')):
+        _site_url = 'https://' + _site_url
+    CSRF_TRUSTED_ORIGINS.append(_site_url)
 
 INSTALLED_APPS = [
     'django.contrib.auth',
