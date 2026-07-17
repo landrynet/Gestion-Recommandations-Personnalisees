@@ -5,6 +5,14 @@ version = "1.0.0"
 id = "3B4_FFSkEVBkAeYMFRJ2e"
 
 [[services]]
+localPort = 8002
+name = "Django SGN"
+paths = ["/"]
+
+[services.development]
+run = "cd /home/runner/workspace/school_app && python3 manage.py runserver 0.0.0.0:8002"
+
+[[services]]
 localPort = 8080
 name = "API Server"
 paths = ["/api"]
@@ -21,7 +29,6 @@ args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
 NODE_ENV = "production"
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
 args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
 
 [services.production.run.env]

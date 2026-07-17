@@ -1,45 +1,60 @@
-# [Project name]
+# Système de Gestion des Notes — RDC
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Application web Django de gestion des notes et de publication des bulletins scolaires officiels pour les établissements de la République Démocratique du Congo.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- **Démarrer le serveur** : workflow `SGN Django` — `cd school_app && python3 manage.py runserver 0.0.0.0:8000`
+- **Migrations** : `cd school_app && python3 manage.py makemigrations && python3 manage.py migrate`
+- **Données initiales** : déjà chargées (préfet, enseignant, classes, matières officielles)
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Backend : **Django 6.0.7 (Python)**
+- Frontend : **HTML5 + Bootstrap 5.3 + Bootstrap Icons**
+- Base de données : **SQLite** (migratable vers PostgreSQL)
+- PDF : ReportLab (prêt à implémenter)
+- Fichiers statiques : WhiteNoise
 
-## Where things live
+## Comptes par défaut
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+| Utilisateur | Mot de passe | Rôle |
+|---|---|---|
+| `prefet` | `prefet2024` | Préfet des études |
+| `enseignant1` | `ens2024` | Enseignant |
 
-## Architecture decisions
+## Applications Django
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+| App | Rôle |
+|---|---|
+| `accounts` | Authentification, rôles (prefet / enseignant) |
+| `dashboard` | Tableau de bord avec statistiques |
+| `students` | Gestion des élèves |
+| `teachers` | Gestion des enseignants |
+| `classes` | Années scolaires, sections, classes |
+| `subjects` | Matières et affectations matière→classe |
+| `bulletin` | Modèles de bulletins officiels RDC |
+| `grades` | Saisie et consultation des notes |
+| `reports` | Rapports élèves / enseignants / résultats |
+| `school_settings` | Informations de l'établissement |
 
-## Product
+## Structure bulletin officiel RDC
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **MAXIMA 20** : Religion, Éducation Civique & Morale, Éducation à la Vie, Informatique, Anglais, Dessin, Éducation Physique, Musique → TG max = 160
+- **MAXIMA 30** : Géographie, Histoire, Sciences, Technologie → TG max = 240
+- **MAXIMA 60** : Français, Mathématique → TG max = 480
+
+Colonnes : 1ère P / 2ème P / EXAM / TOT (S1) + 3ème P / 4ème P / EXAM / TOT (S2) + T.G. + Repêchage
+
+## Palette de couleurs
+
+- Bleu foncé : `#0F172A`
+- Bleu principal : `#2563EB`
+- Blanc : `#FFFFFF`
+- Gris clair : `#F8FAFC`
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Technologies obligatoires : Django (Python), HTML5, CSS3, Bootstrap 5, Bootstrap Icons, JavaScript minimal, SQLite
+- Pas de panneau Django `/admin`
+- Tout l'administration via interface personnalisée
