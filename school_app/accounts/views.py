@@ -23,6 +23,7 @@ def logout_view(request):
 
 
 def prefet_required(view_func):
+    """Décorateur : réservé au Préfet des études uniquement."""
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
@@ -33,10 +34,22 @@ def prefet_required(view_func):
     return wrapper
 
 
+def enseignant_only(view_func):
+    """Décorateur : réservé aux enseignants uniquement (bloque le préfet)."""
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+        if request.user.is_prefet():
+            messages.error(request, "Cette section est réservée aux enseignants.")
+            return redirect('dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 @login_required
 @prefet_required
 def user_list(request):
-    users = CustomUser.objects.all().order_by('last_name', 'first_name')
+    users = CustomUser.objects.all().order_by('role', 'last_name', 'first_name')
     return render(request, 'accounts/user_list.html', {'users': users})
 
 

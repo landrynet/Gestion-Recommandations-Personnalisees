@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}Mon tableau de bord{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Mon tableau de bord</li>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">
+    <i class="bi bi-person-badge-fill text-success me-2"></i>
+    Bonjour, {{ request.user.get_full_name|default:request.user.username }}
+  </h1>
+  {% if annee_active %}
+  <span class="badge bg-success fs-6"><i class="bi bi-calendar3 me-1"></i>{{ annee_active }}</span>
+  {% endif %}
+</div>
+
+<!-- Mes statistiques -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-4">
+    <div class="stat-card">
+      <div class="stat-icon teal"><i class="bi bi-building-fill"></i></div>
+      <div><div class="stat-value">{{ nb_mes_classes }}</div><div class="stat-label">Mes classes</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-4">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-book-fill"></i></div>
+      <div><div class="stat-value">{{ nb_mes_matieres }}</div><div class="stat-label">Mes matières</div></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-4">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+      <div><div class="stat-value">{{ nb_mes_eleves }}</div><div class="stat-label">Mes élèves</div></div>
+    </div>
+  </div>
+</div>
+
+{% if not teacher %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-2"></i>
+  Votre profil enseignant n'est pas encore configuré. Contactez le Préfet des études.
+</div>
+{% else %}
+
+<div class="row g-4">
+  <!-- Avancement par matière -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-pencil-square text-primary me-2"></i>Avancement de ma saisie</span>
+        <a href="{% url 'saisie_notes' %}" class="btn btn-sm btn-primary"><i class="bi bi-pencil me-1"></i>Saisir des notes</a>
+      </div>
+      <div class="card-body">
+        {% for item in avancement %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="small fw-semibold">{{ item.affectation.matiere }} — {{ item.affectation.classe }}</span>
+            <span class="small text-muted">{{ item.notes_saisies }} / {{ item.attendues }}</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:6px">
+            <div class="progress-bar {% if item.pct == 100 %}bg-success{% elif item.pct > 50 %}bg-primary{% else %}bg-warning{% endif %}"
+                 style="width:{{ item.pct }}%;border-radius:6px"></div>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-muted" style="font-size:0.7rem">{{ item.nb_eleves }} élève{{ item.nb_eleves|pluralize }}</span>
+            <span class="text-muted" style="font-size:0.7rem">{{ item.pct }}%</span>
+          </div>
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-3">
+          <i class="bi bi-exclamation-circle fs-2 d-block mb-2"></i>
+          Aucune matière affectée. Contactez le Préfet.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mes classes & matières -->
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-building-fill text-success me-2"></i>Mes classes</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead><tr><th>Classe</th><th>Section</th><th>Élèves</th></tr></thead>
+          <tbody>
+            {% for c in mes_classes %}
+            <tr>
+              <td class="fw-medium">{{ c.nom }}</td>
+              <td>{{ c.section }}</td>
+              <td><span class="badge bg-primary rounded-pill">{{ c.eleves.count }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-2">Aucune classe</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-book-fill text-warning me-2"></i>Mes matières</div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead><tr><th>Matière</th><th>Classe</th><th>Maxima</th></tr></thead>
+          <tbody>
+            {% for aff in mes_affectations %}
+            <tr>
+              <td class="fw-medium">{{ aff.matiere.nom }}</td>
+              <td>{{ aff.classe }}</td>
+              <td><span class="badge bg-secondary">{{ aff.matiere.maxima }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-2">Aucune affectation</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if mes_notes_recentes %}
+<!-- Notes récentes -->
+<div class="card mt-4">
+  <div class="card-header"><i class="bi bi-clock-history text-muted me-2"></i>Dernières notes saisies</div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead><tr><th>Élève</th><th>Matière</th><th>Classe</th><th>Période</th><th class="text-center">Note</th></tr></thead>
+      <tbody>
+        {% for n in mes_notes_recentes %}
+        <tr>
+          <td class="fw-medium">{{ n.eleve.nom_complet }}</td>
+          <td>{{ n.matiere_classe.matiere }}</td>
+          <td>{{ n.matiere_classe.classe }}</td>
+          <td><span class="badge bg-light text-dark border">{{ n.periode }}</span></td>
+          <td class="text-center fw-bold">{{ n.valeur }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

@@ -1,1 +1,2 @@
-- [Django SGN RDC](django-sgn-setup.md) — App Django dans school_app/ avec workflow "SGN Django" sur port 8000; ne pas utiliser le monorepo Node.js pour cette app.
+- [Django SGN RDC](django-sgn-setup.md) — App Django dans school_app/ avec workflow "artifacts/api-server: Django SGN" sur port 8002; ne pas utiliser le monorepo Node.js pour cette app.
+- [SGN Templates corrigés](sgn-templates-fix.md) — affectation_list, matiere_list, consulter_notes, grades_tags (get_item) tous corrigés et alignés avec les vues réécrites.

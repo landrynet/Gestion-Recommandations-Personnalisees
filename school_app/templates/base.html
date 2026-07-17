@@ -10,18 +10,17 @@
 </head>
 <body>
 {% if user.is_authenticated %}
-<!-- Sidebar -->
+
+<!-- ═══════════════════ SIDEBAR PRÉFET ═══════════════════ -->
+{% if user.is_prefet %}
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <div class="sidebar-logo">
-      <i class="bi bi-mortarboard-fill"></i>
-    </div>
+    <div class="sidebar-logo"><i class="bi bi-mortarboard-fill"></i></div>
     <div class="sidebar-title">
-      <span class="fw-bold text-white small">{{ school_info.nom|truncatechars:24 }}</span>
-      <span class="text-muted" style="font-size:0.7rem">SGN – RDC</span>
+      <span class="fw-bold text-white small">{{ school_info.nom|truncatechars:22 }}</span>
+      <span class="text-muted" style="font-size:0.68rem">Préfet des études</span>
     </div>
   </div>
-
   <nav class="sidebar-nav">
     <div class="nav-section-label">Principal</div>
     <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
@@ -39,36 +38,66 @@
       <i class="bi bi-building-fill"></i><span>Classes</span>
     </a>
     <a href="{% url 'matiere_list' %}" class="nav-link {% if 'matiere' in request.resolver_match.url_name or 'affectation' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-book-fill"></i><span>Matières</span>
+      <i class="bi bi-book-fill"></i><span>Matières & affectations</span>
     </a>
 
-    <div class="nav-section-label">Bulletins & Notes</div>
+    <div class="nav-section-label">Bulletins</div>
     <a href="{% url 'bulletin_list' %}" class="nav-link {% if 'bulletin' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-file-earmark-text-fill"></i><span>Bulletins</span>
-    </a>
-    <a href="{% url 'saisie_notes' %}" class="nav-link {% if 'notes' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-pencil-square"></i><span>Saisie des notes</span>
+      <i class="bi bi-file-earmark-text-fill"></i><span>Modèles de bulletins</span>
     </a>
 
-    {% if user.is_prefet %}
     <div class="nav-section-label">Rapports</div>
-    <a href="{% url 'rapport_eleves' %}" class="nav-link {% if 'rapport' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-bar-chart-fill"></i><span>Rapports</span>
+    <a href="{% url 'rapport_eleves' %}" class="nav-link {% if request.resolver_match.url_name == 'rapport_eleves' %}active{% endif %}">
+      <i class="bi bi-people"></i><span>Rapport élèves</span>
     </a>
-    {% endif %}
+    <a href="{% url 'rapport_enseignants' %}" class="nav-link {% if request.resolver_match.url_name == 'rapport_enseignants' %}active{% endif %}">
+      <i class="bi bi-person-badge"></i><span>Rapport enseignants</span>
+    </a>
+    <a href="{% url 'rapport_resultats' %}" class="nav-link {% if request.resolver_match.url_name == 'rapport_resultats' %}active{% endif %}">
+      <i class="bi bi-trophy-fill"></i><span>Résultats & classement</span>
+    </a>
   </nav>
-
   <div class="sidebar-footer">
-    {% if user.is_prefet %}
     <a href="{% url 'settings_view' %}" class="nav-link {% if 'settings' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-gear-fill"></i><span>Paramètres</span>
     </a>
-    {% endif %}
     <a href="{% url 'logout' %}" class="nav-link text-danger-soft">
       <i class="bi bi-box-arrow-right"></i><span>Déconnexion</span>
     </a>
   </div>
 </div>
+
+<!-- ═══════════════════ SIDEBAR ENSEIGNANT ═══════════════════ -->
+{% else %}
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo"><i class="bi bi-person-badge-fill"></i></div>
+    <div class="sidebar-title">
+      <span class="fw-bold text-white small">{{ user.get_full_name|default:user.username|truncatechars:22 }}</span>
+      <span class="text-muted" style="font-size:0.68rem">Enseignant</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Mon espace</div>
+    <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+      <i class="bi bi-grid-1x2-fill"></i><span>Mon tableau de bord</span>
+    </a>
+
+    <div class="nav-section-label">Notes</div>
+    <a href="{% url 'saisie_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'saisie_notes' %}active{% endif %}">
+      <i class="bi bi-pencil-square"></i><span>Saisie des notes</span>
+    </a>
+    <a href="{% url 'consulter_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'consulter_notes' %}active{% endif %}">
+      <i class="bi bi-table"></i><span>Consulter mes notes</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <a href="{% url 'logout' %}" class="nav-link text-danger-soft">
+      <i class="bi bi-box-arrow-right"></i><span>Déconnexion</span>
+    </a>
+  </div>
+</div>
+{% endif %}
 
 <!-- Main -->
 <div class="main-content" id="main-content">
@@ -121,7 +150,6 @@
       document.getElementById('main-content').classList.toggle('expanded');
     });
   }
-  // Auto-dismiss alerts after 4s
   document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
     const bsAlert = bootstrap.Alert.getOrCreateInstance(a);
     if (bsAlert) bsAlert.close();
