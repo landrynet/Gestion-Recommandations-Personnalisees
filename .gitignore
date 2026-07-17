@@ -1,49 +1,48 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
 
-# compiled output
-dist
-tmp
-out-tsc
-*.tsbuildinfo
-.expo
-.expo-shared
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+school_app/media/
+school_app/staticfiles/
 
-# dependencies
-node_modules
+# Environnements virtuels
+.venv/
+venv/
+env/
+.pythonlibs/
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# Replit (ne pas versionner)
+.replit
+.replitignore
+.npmrc
+pnpm-lock.yaml
+pnpm-workspace.yaml
+uv.lock
+artifacts/
+lib/
+scripts/
+.agents/
+.local/
+node_modules/
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
-
-# System Files
+# Système
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
 
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
-.cache/
-.local/
+# Variables d'environnement
+.env
+.env.*

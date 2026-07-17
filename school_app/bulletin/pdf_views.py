@@ -1,24 +1,26 @@
 """
-Génération PDF du bulletin individuel au format IGE/P.S/005.
-Utilise ReportLab Platypus pour reproduire le tableau officiel RDC.
+Génération PDF du bulletin individuel au format officiel IGE/P.S/005.
+En-tête: Drapeau RDC | Titre ministère | Armoiries
+Reproduit fidèlement le formulaire officiel de la RDC.
 """
+import os
 from io import BytesIO
 from decimal import Decimal
 
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm, mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph,
-    Spacer, HRFlowable
+    Spacer, Image
 )
-from reportlab.platypus.flowables import KeepTogether
 
 from .models import ModeleBulletin
 from students.models import Student
@@ -27,15 +29,13 @@ from subjects.models import MatiereClasse
 from school_settings.models import SchoolInfo
 
 
-# ─── Palette ──────────────────────────────────────────────────────────────────
-DARK      = colors.HexColor('#1a1a2e')
-BLUE      = colors.HexColor('#1565C0')
-GREY_HDR  = colors.HexColor('#CFD8DC')
-GREY_MAX  = colors.HexColor('#ECEFF1')
-WHITE     = colors.white
+# ─── Palette officielle ───────────────────────────────────────────────────────
 BLACK     = colors.black
-RED_FAIL  = colors.HexColor('#FFCDD2')
-GRN_PASS  = colors.HexColor('#C8E6C9')
+WHITE     = colors.white
+GREY_HDR  = colors.HexColor('#D0D0D0')   # fond en-têtes colonnes
+GREY_MAX  = colors.HexColor('#B8B8B8')   # fond lignes MAXIMA
+GREY_BG   = colors.HexColor('#E8E8E8')   # fond lignes bilan (application, conduite…)
+BLUE_HDR  = colors.HexColor('#00008B')   # bleu foncé titre ministère (optionnel)
 
 
 def _note_str(val):
@@ -46,7 +46,6 @@ def _note_str(val):
 
 
 def _calc_eleve(modele, eleve):
-    """Calcule toutes les données de notes pour un élève, renvoie (matieres_data, total_obtenu, total_max)."""
     periodes = ['1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2', 'REPECHAGE']
     matieres_data = []
     total_obtenu = Decimal('0')
@@ -67,13 +66,13 @@ def _calc_eleve(modele, eleve):
             for p in periodes:
                 notes_dict[p] = None
 
-        mx   = mat.maxima
-        n1p  = notes_dict.get('1P')    or Decimal('0')
-        n2p  = notes_dict.get('2P')    or Decimal('0')
-        ne1  = notes_dict.get('EXAM1') or Decimal('0')
-        n3p  = notes_dict.get('3P')    or Decimal('0')
-        n4p  = notes_dict.get('4P')    or Decimal('0')
-        ne2  = notes_dict.get('EXAM2') or Decimal('0')
+        mx  = mat.maxima
+        n1p = notes_dict.get('1P')    or Decimal('0')
+        n2p = notes_dict.get('2P')    or Decimal('0')
+        ne1 = notes_dict.get('EXAM1') or Decimal('0')
+        n3p = notes_dict.get('3P')    or Decimal('0')
+        n4p = notes_dict.get('4P')    or Decimal('0')
+        ne2 = notes_dict.get('EXAM2') or Decimal('0')
 
         has_s1 = any(notes_dict.get(p) is not None for p in ('1P', '2P', 'EXAM1'))
         has_s2 = any(notes_dict.get(p) is not None for p in ('3P', '4P', 'EXAM2'))
@@ -87,16 +86,16 @@ def _calc_eleve(modele, eleve):
         total_max_tg += max_tg
 
         matieres_data.append({
-            'matiere':  mat,
-            'n1p':      notes_dict.get('1P'),
-            'n2p':      notes_dict.get('2P'),
-            'nexam1':   notes_dict.get('EXAM1'),
-            'tot_s1':   tot_s1,
-            'n3p':      notes_dict.get('3P'),
-            'n4p':      notes_dict.get('4P'),
-            'nexam2':   notes_dict.get('EXAM2'),
-            'tot_s2':   tot_s2,
-            'tg':       tg,
+            'matiere':   mat,
+            'n1p':       notes_dict.get('1P'),
+            'n2p':       notes_dict.get('2P'),
+            'nexam1':    notes_dict.get('EXAM1'),
+            'tot_s1':    tot_s1,
+            'n3p':       notes_dict.get('3P'),
+            'n4p':       notes_dict.get('4P'),
+            'nexam2':    notes_dict.get('EXAM2'),
+            'tot_s2':    tot_s2,
+            'tg':        tg,
             'repechage': notes_dict.get('REPECHAGE'),
         })
 
@@ -120,27 +119,33 @@ def _get_classement(modele, eleve_score):
 
 
 def _mention(pct):
-    if pct >= 80:   return 'Grande distinction'
-    if pct >= 70:   return 'Distinction'
-    if pct >= 60:   return 'Satisfaction'
-    if pct >= 50:   return 'Réussite'
+    if pct >= 80: return 'Grande distinction'
+    if pct >= 70: return 'Distinction'
+    if pct >= 60: return 'Satisfaction'
+    if pct >= 50: return 'Réussite'
     return 'Échec'
 
 
-# ─── Styles ────────────────────────────────────────────────────────────────────
+def _logo_path(filename):
+    """Chemin absolu vers un fichier static/images/."""
+    return os.path.join(settings.BASE_DIR, 'static', 'images', filename)
+
+
+# ─── Styles ───────────────────────────────────────────────────────────────────
 def _styles():
     base = getSampleStyleSheet()
-    tiny  = ParagraphStyle('tiny',  parent=base['Normal'], fontSize=6.5, leading=8)
-    small = ParagraphStyle('small', parent=base['Normal'], fontSize=7.5, leading=9)
-    bold  = ParagraphStyle('bold',  parent=base['Normal'], fontSize=7.5, leading=9, fontName='Helvetica-Bold')
-    ctr   = ParagraphStyle('ctr',   parent=base['Normal'], fontSize=7,   leading=8.5, alignment=TA_CENTER)
-    ctr_b = ParagraphStyle('ctr_b', parent=base['Normal'], fontSize=7,   leading=8.5, alignment=TA_CENTER, fontName='Helvetica-Bold')
-    hdr   = ParagraphStyle('hdr',   parent=base['Normal'], fontSize=8.5, leading=10, fontName='Helvetica-Bold', alignment=TA_CENTER)
-    title = ParagraphStyle('title', parent=base['Normal'], fontSize=9,   leading=11, fontName='Helvetica-Bold', alignment=TA_CENTER)
-    return tiny, small, bold, ctr, ctr_b, hdr, title
+    tiny  = ParagraphStyle('tiny',  parent=base['Normal'], fontSize=6,   leading=7.5)
+    small = ParagraphStyle('small', parent=base['Normal'], fontSize=7,   leading=8.5)
+    bold  = ParagraphStyle('bold',  parent=base['Normal'], fontSize=7,   leading=8.5, fontName='Helvetica-Bold')
+    ctr   = ParagraphStyle('ctr',   parent=base['Normal'], fontSize=6.5, leading=8,   alignment=TA_CENTER)
+    ctr_b = ParagraphStyle('ctr_b', parent=base['Normal'], fontSize=6.5, leading=8,   alignment=TA_CENTER, fontName='Helvetica-Bold')
+    min_t = ParagraphStyle('min_t', parent=base['Normal'], fontSize=8,   leading=10,  fontName='Helvetica-Bold', alignment=TA_CENTER)
+    titre = ParagraphStyle('titre', parent=base['Normal'], fontSize=7.5, leading=9.5, fontName='Helvetica-Bold', alignment=TA_CENTER)
+    right = ParagraphStyle('right', parent=base['Normal'], fontSize=6,   leading=7.5, alignment=TA_RIGHT)
+    return tiny, small, bold, ctr, ctr_b, min_t, titre, right
 
 
-# ─── Vue principale ────────────────────────────────────────────────────────────
+# ─── Vue principale ───────────────────────────────────────────────────────────
 @login_required
 def bulletin_eleve_pdf(request, pk, eleve_pk):
     modele = get_object_or_404(ModeleBulletin, pk=pk)
@@ -148,7 +153,7 @@ def bulletin_eleve_pdf(request, pk, eleve_pk):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden("Accès réservé au Préfet.")
 
-    eleve = get_object_or_404(Student, pk=eleve_pk)
+    eleve  = get_object_or_404(Student, pk=eleve_pk)
     school = SchoolInfo.get_info()
 
     matieres_data, total_obtenu, total_max, pct = _calc_eleve(modele, eleve)
@@ -156,108 +161,238 @@ def bulletin_eleve_pdf(request, pk, eleve_pk):
     nb_eleves  = eleve.classe.eleves.count() if eleve.classe else 0
     mention    = _mention(pct)
 
-    # ── Document ──
     buf = BytesIO()
     page_w, page_h = A4
+    avail_w = page_w - 2.4 * cm
+
     doc = SimpleDocTemplate(
         buf,
         pagesize=A4,
         leftMargin=1.2*cm, rightMargin=1.2*cm,
-        topMargin=1.0*cm,  bottomMargin=1.0*cm,
-        title=f"Bulletin {eleve.nom_complet}",
+        topMargin=0.8*cm,  bottomMargin=0.8*cm,
+        title=f"Bulletin {eleve.nom} {eleve.postnom}",
     )
-    tiny, small, bold, ctr, ctr_b, hdr, title_style = _styles()
+    tiny, small, bold, ctr, ctr_b, min_t, titre, right = _styles()
     story = []
 
-    # ── En-tête nationale ──
-    story.append(Paragraph(
+    # ══════════════════════════════════════════════════════════════════════════
+    # 1. EN-TÊTE OFFICIELLE : Drapeau | Titre Ministère | Armoiries
+    # ══════════════════════════════════════════════════════════════════════════
+    logo_h = 2.0 * cm
+
+    drapeau_path  = _logo_path('drapeau.png')
+    armoiries_path = _logo_path('armoiries.png')
+
+    try:
+        img_drapeau   = Image(drapeau_path,  width=2.6*cm, height=logo_h)
+    except Exception:
+        img_drapeau   = Paragraph('', small)
+
+    try:
+        img_armoiries = Image(armoiries_path, width=2.0*cm, height=logo_h)
+    except Exception:
+        img_armoiries = Paragraph('', small)
+
+    ministere_txt = (
         "REPUBLIQUE DEMOCRATIQUE DU CONGO<br/>"
-        "<font size='6'>MINISTERE DE L'ENSEIGNEMENT PRIMAIRE, SECONDAIRE ET PROFESSIONNEL</font>",
-        hdr
-    ))
-    story.append(Spacer(1, 3*mm))
+        "MINISTERE DE L'ENSEIGNEMENT PRIMAIRE, SECONDAIRE<br/>"
+        "ET PROFESSIONNEL"
+    )
 
-    # ── Infos école / élève côte à côte ──
-    p_school = school.province if school else ''
-    v_school  = school.ville    if school else ''
-    c_school  = school.commune  if school else ''
-    n_school  = school.nom      if school else ''
-    co_school = school.code     if school else ''
-
-    info_data = [[
-        Paragraph(
-            f"<b>PROVINCE :</b> {p_school}<br/>"
-            f"<b>VILLE :</b> {v_school} &nbsp; <b>COMMUNE :</b> {c_school}<br/>"
-            f"<b>ÉCOLE :</b> {n_school}<br/>"
-            f"<b>CODE :</b> {co_school}",
-            small
-        ),
-        Paragraph(
-            f"<b>ÉLÈVE :</b> {eleve.nom_complet} &nbsp;&nbsp; <b>SEXE :</b> {eleve.get_sexe_display()}<br/>"
-            f"<b>NÉ(E) À :</b> {eleve.lieu_naissance or ''} &nbsp; <b>LE</b> {eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else ''}<br/>"
-            f"<b>CLASSE :</b> {modele.classe}<br/>"
-            f"<b>N° PERM. :</b> {eleve.matricule}",
-            small
-        ),
+    header_data = [[
+        img_drapeau,
+        Paragraph(ministere_txt, min_t),
+        img_armoiries,
     ]]
-    avail_w = page_w - 2.4*cm
-    info_tbl = Table(info_data, colWidths=[avail_w/2, avail_w/2])
+    col_logo = 2.8 * cm
+    header_tbl = Table(
+        header_data,
+        colWidths=[col_logo, avail_w - 2 * col_logo, col_logo]
+    )
+    header_tbl.setStyle(TableStyle([
+        ('VALIGN',      (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN',       (0, 0), (0, 0),   'LEFT'),
+        ('ALIGN',       (1, 0), (1, 0),   'CENTER'),
+        ('ALIGN',       (2, 0), (2, 0),   'RIGHT'),
+        ('BOX',         (0, 0), (-1, -1), 0.8, BLACK),
+        ('TOPPADDING',  (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING',(0,0), (-1, -1), 3),
+    ]))
+    story.append(header_tbl)
+    story.append(Spacer(1, 1*mm))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 2. NUMÉRO D'IDENTIFICATION (N° ID.)
+    # ══════════════════════════════════════════════════════════════════════════
+    id_code = school.code if school else ''
+    # Découper code en caractères individuels pour les cases
+    chars = list(id_code.replace('/', '-').replace(' ', ''))[:20]
+    # Cellules pour chaque caractère
+    cases = [Paragraph(f"<b>{c}</b>", ctr_b) for c in chars]
+    # Remplir à 20 cases
+    while len(cases) < 20:
+        cases.append(Paragraph('', ctr))
+
+    id_label = [Paragraph('<b>N° ID.</b>', bold)]
+    id_row   = [id_label + cases]
+    case_w   = (avail_w - 1.8*cm) / 20
+    id_tbl   = Table(id_row, colWidths=[1.8*cm] + [case_w]*20)
+    id_tbl.setStyle(TableStyle([
+        ('BOX',          (0, 0), (-1, -1), 0.8, BLACK),
+        ('GRID',         (1, 0), (-1, -1), 0.5, BLACK),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN',        (0, 0), (0,  0),  'LEFT'),
+        ('ALIGN',        (1, 0), (-1, -1), 'CENTER'),
+        ('FONTSIZE',     (0, 0), (-1, -1), 6.5),
+        ('TOPPADDING',   (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 2),
+        ('LEFTPADDING',  (0, 0), (0, 0),   4),
+    ]))
+    story.append(id_tbl)
+    story.append(Spacer(1, 1*mm))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 3. PROVINCE
+    # ══════════════════════════════════════════════════════════════════════════
+    prov_txt = f"<b>PROVINCE DU {(school.province or '').upper()}</b>" if school else '<b>PROVINCE :</b>'
+    prov_tbl = Table([[Paragraph(prov_txt, bold)]], colWidths=[avail_w])
+    prov_tbl.setStyle(TableStyle([
+        ('BOX',         (0,0), (-1,-1), 0.8, BLACK),
+        ('TOPPADDING',  (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 2),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+    ]))
+    story.append(prov_tbl)
+    story.append(Spacer(1, 1*mm))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 4. INFOS ÉCOLE (gauche) | INFOS ÉLÈVE (droite)
+    # ══════════════════════════════════════════════════════════════════════════
+    v_s  = (school.ville    or '') if school else ''
+    c_s  = (school.commune  or '') if school else ''
+    n_s  = (school.nom      or '') if school else ''
+    co_s = (school.code     or '') if school else ''
+    p_s  = (school.province or '') if school else ''
+
+    dn = eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else '...../...../........'
+    nom_complet = f"{eleve.nom} {eleve.postnom} {eleve.prenom}"
+
+    # Cases N° PERM
+    perm_chars = list(eleve.matricule or '')[:12]
+    while len(perm_chars) < 12:
+        perm_chars.append('')
+    perm_cases = [Paragraph(f"<b>{c}</b>", ctr_b) for c in perm_chars]
+    perm_case_w = (avail_w/2 - 2.5*cm) / 12
+
+    ecole_cell = Paragraph(
+        f"<b>VILLE</b> &nbsp;&nbsp;&nbsp; : {v_s}<br/>"
+        f"<b>COMMUNE</b> : {c_s}<br/>"
+        f"<b>ÉCOLE</b> &nbsp;&nbsp;&nbsp; : {n_s}<br/>"
+        f"<b>CODE</b> &nbsp;&nbsp;&nbsp;&nbsp; : {co_s}",
+        small
+    )
+
+    eleve_perm_tbl = Table(
+        [[Paragraph('<b>N° PERM. :</b>', bold)] + perm_cases],
+        colWidths=[2.5*cm] + [perm_case_w]*12
+    )
+    eleve_perm_tbl.setStyle(TableStyle([
+        ('GRID',         (1, 0), (-1, -1), 0.5, BLACK),
+        ('FONTSIZE',     (0, 0), (-1, -1), 6),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN',        (1, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 1),
+    ]))
+
+    eleve_cell = [
+        Paragraph(
+            f"<b>ÉLÈVE :</b> {nom_complet} &nbsp;&nbsp;&nbsp; <b>SEXE :</b> {eleve.get_sexe_display()}<br/>"
+            f"<b>NÉ(E) À :</b> {eleve.lieu_naissance or ''}............. <b>LE</b> {dn}<br/>"
+            f"<b>CLASSE :</b> {modele.classe}",
+            small
+        ),
+        eleve_perm_tbl,
+    ]
+
+    # Assembler les deux colonnes
+    info_data = [[ecole_cell, eleve_cell]]
+    info_tbl  = Table(info_data, colWidths=[avail_w/2, avail_w/2])
     info_tbl.setStyle(TableStyle([
-        ('BOX',       (0, 0), (-1, -1), 0.5, BLACK),
-        ('LINEBEFORE',(1, 0), (1, 0), 0.5, BLACK),
-        ('VALIGN',    (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING',(0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING',(0,0),(-1,-1),3),
-        ('LEFTPADDING', (0,0),(-1,-1),5),
+        ('BOX',         (0, 0), (-1, -1), 0.8, BLACK),
+        ('LINEBEFORE',  (1, 0), (1, 0),   0.5, BLACK),
+        ('VALIGN',      (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',  (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING',(0,0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
     ]))
     story.append(info_tbl)
     story.append(Spacer(1, 1*mm))
 
-    # ── Titre du bulletin ──
-    story.append(Table([[Paragraph(
-        f"BULLETIN — {modele.classe} — ANNÉE SCOLAIRE {modele.annee_scolaire}",
-        title_style
-    )]], colWidths=[avail_w], style=TableStyle([
-        ('BOX', (0,0), (-1,-1), 0.5, BLACK),
-        ('TOPPADDING', (0,0), (-1,-1), 3),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-    ])))
-    story.append(Spacer(1, 1.5*mm))
+    # ══════════════════════════════════════════════════════════════════════════
+    # 5. TITRE DU BULLETIN
+    # ══════════════════════════════════════════════════════════════════════════
+    annee_str = str(modele.annee_scolaire)
+    titre_txt = (
+        f"BULLETIN DE LA 1<super>ère</super>, 2<super>ème</super> (1) ANNEE SECONDAIRE "
+        f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ANNEE SCOLAIRE {annee_str}"
+    )
+    titre_tbl = Table([[Paragraph(titre_txt, titre)]], colWidths=[avail_w])
+    titre_tbl.setStyle(TableStyle([
+        ('BOX',         (0,0), (-1,-1), 0.8, BLACK),
+        ('TOPPADDING',  (0,0), (-1,-1), 3),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 3),
+        ('BACKGROUND',  (0,0), (-1,-1), GREY_HDR),
+    ]))
+    story.append(titre_tbl)
+    story.append(Spacer(1, 1*mm))
 
-    # ── Tableau des notes ──
-    # Colonnes : Branche | 1P | 2P | EXAM1 | TOT.S1 | 3P | 4P | EXAM2 | TOT.S2 | TG | % REPÊCH | SIGN
-    COL_W = [avail_w * f for f in [.23, .07, .07, .07, .07, .07, .07, .07, .07, .07, .07, .06]]
+    # ══════════════════════════════════════════════════════════════════════════
+    # 6. TABLEAU DES NOTES
+    # ══════════════════════════════════════════════════════════════════════════
+    # Proportions colonnes : Branches | 1P | 2P | EXAM | TOT | 3P | 4P | EXAM | TOT | TG | % | SIGN.
+    COL_RATIOS = [.22, .07, .07, .07, .07, .07, .07, .07, .07, .07, .065, .065]
+    COL_W = [avail_w * r for r in COL_RATIOS]
 
-    def _h(txt): return Paragraph(txt, ctr_b)
-    def _c(txt): return Paragraph(txt, ctr)
-    def _b(txt): return Paragraph(txt, bold)
+    def _h(txt):  return Paragraph(txt, ctr_b)
+    def _c(txt):  return Paragraph(txt, ctr)
+    def _b(txt):  return Paragraph(txt, bold)
+    def _bl(txt): return Paragraph(txt, small)
 
-    # Ligne de titres de colonnes (3 niveaux fusionnés via span)
+    # 3 lignes d'en-têtes fusionnées
     header_rows = [
-        [_h('BRANCHES'), _h('PREMIER SEMESTRE'), '', '', '', _h('SECOND SEMESTRE'), '', '', '', _h('T.G.'), _h('REP.'), _h('SIGN.')],
-        ['',              _h('TR. JOURNAL.'), '', _h('EXAM'), _h('TOT.'), _h('TR. JOURNAL.'), '', _h('EXAM'), _h('TOT.'), '', '', ''],
-        ['',              _h('1ère P'), _h('2ème P'), '', '', _h('3ème P'), _h('4ème P'), '', '', '', '', ''],
+        [_h('BRANCHES'),
+         _h('PREMIER SEMESTRE'), '', '', '',
+         _h('SECOND SEMESTRE'),  '', '', '',
+         _h('T.G.'),
+         _h('EXAMEN DE<br/>REPÊCHAGE'), ''],
+        ['',
+         _h('TR. JOURNAL.'), '', _h('EXAM'), _h('TOT.'),
+         _h('TR. JOURNAL.'), '', _h('EXAM'), _h('TOT.'),
+         '', _h('%'), _h('SIGN.<br/>PROF')],
+        ['',
+         _h('1<super>ère</super> P'), _h('2<super>ème</super> P'), '', '',
+         _h('3<super>ème</super> P'), _h('4<super>ème</super> P'), '', '',
+         '', '', ''],
     ]
 
-    tbl_data = list(header_rows)
+    tbl_data   = list(header_rows)
+    row_styles = []
+    span_cmds  = []
+    current_row = 3
 
-    # Grouper par maxima
+    # Regrouper par maxima
     groups = {}
     for row in matieres_data:
         mx = row['matiere'].maxima
         groups.setdefault(mx, []).append(row)
 
-    span_cmds = []          # styles à ajouter dynamiquement
-    row_styles = []         # fonds colorés par ligne
-    current_row = 3         # après les 3 lignes d'en-tête
-
     for mx in sorted(groups.keys()):
+        mx2, mx4, mx8 = mx*2, mx*4, mx*8
         # Ligne MAXIMA
-        mx2 = mx * 2
-        mx4 = mx * 4
-        mx8 = mx * 8
         tbl_data.append([
-            _b('MAXIMA'), _c(str(mx)), _c(str(mx)), _c(str(mx2)), _c(str(mx4)),
+            _b('MAXIMA'),
+            _c(str(mx)), _c(str(mx)), _c(str(mx2)), _c(str(mx4)),
             _c(str(mx)), _c(str(mx)), _c(str(mx2)), _c(str(mx4)),
             _c(str(mx8)), '', '',
         ])
@@ -266,11 +401,11 @@ def bulletin_eleve_pdf(request, pk, eleve_pk):
         current_row += 1
 
         for row in groups[mx]:
-            tg_str = _note_str(row['tg']) if row['tg'] else ''
-            pct_row = round(float(row['tg']) / float(mx * 8) * 100, 0) if row['tg'] and mx * 8 > 0 else ''
+            tg_val  = row['tg'] or Decimal('0')
+            pct_row = round(float(tg_val) / float(mx*8) * 100, 0) if mx*8 > 0 else ''
             pct_str = f"{int(pct_row)}%" if pct_row != '' else ''
             tbl_data.append([
-                Paragraph(row['matiere'].nom, small),
+                _bl(row['matiere'].nom),
                 _c(_note_str(row['n1p'])),
                 _c(_note_str(row['n2p'])),
                 _c(_note_str(row['nexam1'])),
@@ -279,135 +414,156 @@ def bulletin_eleve_pdf(request, pk, eleve_pk):
                 _c(_note_str(row['n4p'])),
                 _c(_note_str(row['nexam2'])),
                 _c(_note_str(row['tot_s2'])),
-                Paragraph(f"<b>{tg_str}</b>", ctr_b),
+                Paragraph(f"<b>{_note_str(tg_val)}</b>", ctr_b),
                 _c(_note_str(row['repechage'])),
                 '',
             ])
             current_row += 1
 
-    # Ligne MAXIMA GÉNÉRAUX
+    # ── Lignes MAXIMA GÉNÉRAUX ──
     tbl_data.append([_b('MAXIMA GÉNÉRAUX'), '', '', '', '', '', '', '', '', _c(str(int(total_max))), '', ''])
     row_styles.append(('BACKGROUND', (0, current_row), (-1, current_row), GREY_MAX))
+    row_styles.append(('FONTNAME',   (0, current_row), (-1, current_row), 'Helvetica-Bold'))
     span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
     span_cmds.append(('SPAN', (10, current_row), (11, current_row)))
     current_row += 1
 
-    # TOTAUX
+    # ── Totaux ──
     tbl_data.append([
-        _b('TOTAUX'), '', '', '', _c(str(_note_str(None))),
-        '', '', '', '',
-        Paragraph(f"<b>{_note_str(total_obtenu)} / {_note_str(total_max)}</b>", ctr_b),
+        _b('TOTAUX'), '', '', '', '', '', '', '', '',
+        Paragraph(f"<b>{_note_str(total_obtenu)}</b>", ctr_b),
         '', '',
     ])
-    row_styles.append(('FONTNAME', (0, current_row), (-1, current_row), 'Helvetica-Bold'))
+    span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
     current_row += 1
 
-    # POURCENTAGE
+    # ── Pourcentage ──
     tbl_data.append([
-        _b('POURCENTAGE'), '', '', '', '',
-        '', '', '', '',
+        _b('POURCENTAGE'), '', '', '', '', '', '', '', '',
         Paragraph(f"<b>{pct}%</b>", ctr_b),
         '', '',
     ])
+    span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
     current_row += 1
 
-    # MENTION
+    # ── Mention ──
     tbl_data.append([
-        _b('MENTION'), '', '', '', '',
-        '', '', '', '',
+        _b('MENTION'), '', '', '', '', '', '', '', '',
         Paragraph(f"<b>{mention}</b>", ctr_b),
         '', '',
     ])
+    span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
     current_row += 1
 
-    # CLASSEMENT
+    # ── Place ──
+    slash = Paragraph('/', ctr)
     tbl_data.append([
-        _b('PLACE / NBRE ÉLÈVES'), '', '', '', '',
-        '', '', '', '',
-        Paragraph(f"<b>{classement} / {nb_eleves}</b>", ctr_b),
-        '', '',
+        _b('PLACE/NBRE ÉLÈVES'),
+        slash, slash, slash, slash,
+        slash, slash, slash, slash,
+        Paragraph(f"<b>{classement}/{nb_eleves}</b>", ctr_b),
+        slash, slash,
     ])
     current_row += 1
 
-    # APPLICATION / CONDUITE
+    # ── Application / Conduite (cases grises) ──
     for label in ['APPLICATION', 'CONDUITE']:
         tbl_data.append([_b(label)] + [''] * 11)
+        row_styles.append(('BACKGROUND', (1, current_row), (8, current_row), GREY_BG))
+        span_cmds.append(('SPAN', (9, current_row), (11, current_row)))
         current_row += 1
 
-    # SIGN. DU RESPONSABLE
+    # ── Signature du responsable ──
     tbl_data.append([_b("SIGN. DU RESPONSABLE")] + [''] * 11)
     current_row += 1
 
-    # ── Construction du tableau ──
+    # ── Assemblage tableau ──
     note_tbl = Table(tbl_data, colWidths=COL_W, repeatRows=3)
 
-    total_rows = current_row
+    bilan_start = current_row - 5  # Totaux, %, Mention, Place, Application, Conduite, Sign
     base_style = [
-        # En-têtes
-        ('BACKGROUND',   (0, 0), (-1, 2), GREY_HDR),
-        ('FONTNAME',     (0, 0), (-1, 2), 'Helvetica-Bold'),
-        ('FONTSIZE',     (0, 0), (-1, -1), 6.5),
-        ('LEADING',      (0, 0), (-1, -1), 8),
-        ('ALIGN',        (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
-        ('ALIGN',        (0, 3), (0, -1), 'LEFT'),
-        # Fusions en-têtes
-        ('SPAN',  (0, 0), (0, 2)),   # BRANCHES
-        ('SPAN',  (1, 0), (4, 0)),   # PREMIER SEMESTRE
-        ('SPAN',  (5, 0), (8, 0)),   # SECOND SEMESTRE
-        ('SPAN',  (9, 0), (9, 2)),   # TG
-        ('SPAN',  (10, 0),(10, 2)),  # REP
-        ('SPAN',  (11, 0),(11, 2)),  # SIGN
-        ('SPAN',  (1, 1), (2, 1)),   # TR. JOURNAL S1
-        ('SPAN',  (3, 1), (3, 2)),   # EXAM S1
-        ('SPAN',  (4, 1), (4, 2)),   # TOT S1
-        ('SPAN',  (5, 1), (6, 1)),   # TR. JOURNAL S2
-        ('SPAN',  (7, 1), (7, 2)),   # EXAM S2
-        ('SPAN',  (8, 1), (8, 2)),   # TOT S2
+        # Fond en-têtes
+        ('BACKGROUND', (0, 0), (-1, 2), GREY_HDR),
+        ('FONTNAME',   (0, 0), (-1, 2), 'Helvetica-Bold'),
+        # Dimensions globales
+        ('FONTSIZE',   (0, 0), (-1, -1), 6.5),
+        ('LEADING',    (0, 0), (-1, -1), 8),
+        ('ALIGN',      (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN',     (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN',      (0, 3), (0, -1),  'LEFT'),
+        # Fusions en-têtes (3 niveaux)
+        ('SPAN', (0, 0),  (0, 2)),    # BRANCHES
+        ('SPAN', (1, 0),  (4, 0)),    # PREMIER SEMESTRE
+        ('SPAN', (5, 0),  (8, 0)),    # SECOND SEMESTRE
+        ('SPAN', (9, 0),  (9, 2)),    # TG
+        ('SPAN', (10, 0), (11, 0)),   # EXAMEN DE REPÊCHAGE
+        ('SPAN', (1, 1),  (2, 1)),    # TR.JOURNAL S1
+        ('SPAN', (3, 1),  (3, 2)),    # EXAM S1
+        ('SPAN', (4, 1),  (4, 2)),    # TOT S1
+        ('SPAN', (5, 1),  (6, 1)),    # TR.JOURNAL S2
+        ('SPAN', (7, 1),  (7, 2)),    # EXAM S2
+        ('SPAN', (8, 1),  (8, 2)),    # TOT S2
+        ('SPAN', (10, 1), (10, 2)),   # % REPÊCHAGE
+        ('SPAN', (11, 1), (11, 2)),   # SIGN.PROF
         # Grille
-        ('GRID',         (0, 0), (-1, -1), 0.3, colors.grey),
-        ('BOX',          (0, 0), (-1, -1), 0.8, BLACK),
-        ('LINEABOVE',    (0, 3), (-1, 3), 0.8, BLACK),
+        ('GRID',      (0, 0), (-1, -1), 0.3, colors.grey),
+        ('BOX',       (0, 0), (-1, -1), 0.8, BLACK),
+        ('LINEABOVE', (0, 3), (-1, 3),  0.8, BLACK),
         # Padding
-        ('TOPPADDING',   (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING',(0, 0), (-1, -1), 2),
-        ('LEFTPADDING',  (0, 0), (0, -1), 3),
+        ('TOPPADDING',    (0, 0), (-1, -1), 1.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
+        ('LEFTPADDING',   (0, 3), (0, -1),  3),
     ]
 
-    # Fusion des lignes "bilan" (Totaux, %, Mention, Place, Application, Conduite, Sign)
-    bilan_start = total_rows - 7
-    for r in range(bilan_start, total_rows):
+    # Fusions lignes bilan
+    for r in range(bilan_start, current_row - 2):  # Totaux, %, Mention
         base_style.append(('SPAN', (0, r), (8, r)))
-        base_style.append(('SPAN', (10, r), (11, r)))
 
     note_tbl.setStyle(TableStyle(base_style + row_styles + span_cmds))
     story.append(note_tbl)
     story.append(Spacer(1, 3*mm))
 
-    # ── Pied de page légal ──
+    # ══════════════════════════════════════════════════════════════════════════
+    # 7. PIED DE PAGE LÉGAL
+    # ══════════════════════════════════════════════════════════════════════════
     footer_lines = [
-        "- L'élève ne pourra passer dans la classe supérieure s'il n'a subi avec succès un examen de repêchage en...................",
-        "- L'élève passe dans la classe supérieure  (1)",
-        "- L'élève double sa classe  (1)",
-        "- L'élève a échoué et est à réorienter vers..................  (1)",
+        "- L'élève ne pourra passer dans la classe supérieure s'il n'a subi avec succès un examen de repêchage en..................................(1)",
+        "- L'élève passe dans la classe supérieure (1)",
+        "- L'élève double sa classe (1)",
+        "- L'élève a échoué et est à réorienter vers.................................(1)",
     ]
     for line in footer_lines:
         story.append(Paragraph(line, tiny))
-    story.append(Spacer(1, 4*mm))
+    story.append(Spacer(1, 5*mm))
 
-    sigs = Table([[
+    # Signatures
+    ville_s = school.ville if school else '...............'
+    sigs_tbl = Table([[
         Paragraph("Signature de l'élève", small),
         Paragraph("Sceau de l'école", small),
-        Paragraph("Le Chef d'Établissement<br/>Nom et Signature", small),
+        Paragraph(
+            f"Fait à {ville_s}, le ........./.........../.............<br/>"
+            "<b>Le Chef d'Établissement</b><br/>Sceau de l'école",
+            small
+        ),
     ]], colWidths=[avail_w/3]*3)
-    sigs.setStyle(TableStyle([
-        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-        ('VALIGN',(0,0), (-1,-1), 'TOP'),
+    sigs_tbl.setStyle(TableStyle([
+        ('ALIGN',  (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
-    story.append(sigs)
-    story.append(Spacer(1, 3*mm))
-    story.append(Paragraph("IGE/P.S/005", ParagraphStyle('ref', fontSize=6, alignment=TA_RIGHT)))
+    story.append(sigs_tbl)
+    story.append(Spacer(1, 4*mm))
 
+    # Note de bas de page
+    story.append(Paragraph(
+        "(1) Biffer la mention inutile &nbsp;&nbsp;&nbsp; "
+        "<i>Note importante : Le bulletin est sans valeur s'il est raturé ou surchargé</i>",
+        tiny
+    ))
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph("IGE/P.S/005", right))
+
+    # ── Génération ──
     doc.build(story)
     buf.seek(0)
     filename = f"bulletin_{eleve.matricule}_{modele.annee_scolaire}.pdf"
