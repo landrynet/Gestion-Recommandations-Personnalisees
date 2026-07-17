@@ -7,6 +7,8 @@ urlpatterns = [
     path('annees/nouvelle/', views.annee_create, name='annee_create'),
     path('annees/<int:pk>/modifier/', views.annee_update, name='annee_update'),
     path('annees/<int:pk>/supprimer/', views.annee_delete, name='annee_delete'),
+    path('annees/<int:pk>/activer/', views.annee_activer, name='annee_activer'),
+    path('annees/<int:pk>/reconduire/', views.reconduire_annee, name='reconduire_annee'),
     # Sections
     path('sections/', views.section_list, name='section_list'),
     path('sections/nouvelle/', views.section_create, name='section_create'),
