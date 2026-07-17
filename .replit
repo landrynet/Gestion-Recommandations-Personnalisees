@@ -9,6 +9,24 @@ args = ["pnpm", "store", "prune"]
 env = { "CI" = "true" }
 
 [workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "SGN Django"
+
+[[workflows.workflow]]
+name = "SGN Django"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace/school_app && python3 manage.py runserver 0.0.0.0:8000 --noreload"
 
 [agent]
 stack = "PNPM_WORKSPACE"
