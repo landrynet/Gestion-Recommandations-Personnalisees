@@ -44,24 +44,42 @@ pip install -r requirements.txt
 
 ---
 
-## Étape 4 : Configurer settings.py pour la production
+## Étape 4 : Configurer les variables d'environnement
 
-Modifier `school_app/school_app/settings.py` :
+**Ne pas modifier `settings.py` directement.** Utilise plutôt des variables d'environnement
+dans le fichier `~/.env` ou via le panneau PythonAnywhere.
+
+Depuis la console Bash PythonAnywhere, ajoute ces lignes à la fin de `~/.bashrc` :
+
+```bash
+export DJANGO_SECRET_KEY='remplace-par-une-cle-secrete-longue-et-aleatoire'
+export DJANGO_DEBUG='False'
+export DJANGO_SITE_URL='https://educ.pythonanywhere.com'
+```
+
+Puis recharge :
+
+```bash
+source ~/.bashrc
+```
+
+> **Important :** `DJANGO_SITE_URL` doit commencer par `https://`. Si tu l'oublies,
+> Django l'ajoute automatiquement — mais mets-le quand même pour être explicite.
+
+Pour générer une clé secrète sécurisée :
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(50))"
+```
+
+**Dans le fichier WSGI** (`/var/www/educ_pythonanywhere_com_wsgi.py`),
+ajoute aussi ces lignes **avant** l'import Django :
 
 ```python
-# Mettre DEBUG = False en production
-DEBUG = False
-
-# Remplacer par votre domaine PythonAnywhere
-ALLOWED_HOSTS = ['votrenom.pythonanywhere.com']
-
-# Ajouter aussi dans CSRF_TRUSTED_ORIGINS :
-CSRF_TRUSTED_ORIGINS = [
-    'https://votrenom.pythonanywhere.com',
-]
-
-# Clé secrète : utiliser une vraie clé en production
-SECRET_KEY = 'votre-clé-secrète-unique-et-longue'
+import os
+os.environ['DJANGO_SECRET_KEY'] = 'ta-cle-secrete'
+os.environ['DJANGO_DEBUG'] = 'False'
+os.environ['DJANGO_SITE_URL'] = 'https://educ.pythonanywhere.com'
 ```
 
 ---
