@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% block title %}Tableau de bord — Préfet{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Tableau de bord</li>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Tableau de bord — Préfet</h1>
+  {% if annee_active %}
+  <span class="badge bg-primary fs-6"><i class="bi bi-calendar3 me-1"></i>{{ annee_active }}</span>
+  {% else %}
+  <a href="{% url 'annee_create' %}" class="btn btn-warning btn-sm">
+    <i class="bi bi-exclamation-triangle me-1"></i>Aucune année active — Créer
+  </a>
+  {% endif %}
+</div>
+
+<!-- Statistiques principales -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'student_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
+        <div><div class="stat-value">{{ nb_eleves }}</div><div class="stat-label">Élèves</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'teacher_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon green"><i class="bi bi-person-badge-fill"></i></div>
+        <div><div class="stat-value">{{ nb_enseignants }}</div><div class="stat-label">Enseignants</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'classe_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon purple"><i class="bi bi-building-fill"></i></div>
+        <div><div class="stat-value">{{ nb_classes }}</div><div class="stat-label">Classes</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'matiere_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon orange"><i class="bi bi-book-fill"></i></div>
+        <div><div class="stat-value">{{ nb_matieres }}</div><div class="stat-label">Matières</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'bulletin_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon teal"><i class="bi bi-file-earmark-check-fill"></i></div>
+        <div><div class="stat-value">{{ nb_bulletins_publies }}</div><div class="stat-label">Bulletins publiés</div></div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'bulletin_list' %}" class="text-decoration-none">
+      <div class="stat-card">
+        <div class="stat-icon" style="background:rgba(249,115,22,0.12);color:#F97316"><i class="bi bi-file-earmark-text"></i></div>
+        <div><div class="stat-value">{{ nb_bulletins_brouillon }}</div><div class="stat-label">En brouillon</div></div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- Taux de saisie des notes -->
+<div class="card mb-4">
+  <div class="card-body py-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="fw-semibold"><i class="bi bi-pencil-square text-primary me-2"></i>Avancement saisie des notes</span>
+      <span class="text-muted small">{{ mc_avec_notes }} / {{ mc_total }} matières-classes remplies</span>
+    </div>
+    <div class="progress" style="height:12px;border-radius:8px">
+      <div class="progress-bar bg-primary" style="width:{{ taux_saisie }}%;border-radius:8px"></div>
+    </div>
+    <div class="text-end small text-muted mt-1">{{ taux_saisie }}%</div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Derniers élèves -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-people-fill text-primary me-2"></i>Derniers élèves inscrits</span>
+        <a href="{% url 'student_list' %}" class="btn btn-sm btn-outline-primary">Voir tout</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead><tr><th>Élève</th><th>Matricule</th><th>Classe</th></tr></thead>
+          <tbody>
+            {% for s in derniers_eleves %}
+            <tr>
+              <td><a href="{% url 'student_detail' s.pk %}" class="text-decoration-none fw-medium">{{ s.nom_complet }}</a></td>
+              <td><code>{{ s.matricule }}</code></td>
+              <td>{% if s.classe %}<span class="badge bg-light text-dark border">{{ s.classe }}</span>{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-center text-muted py-3">Aucun élève</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Classes avec effectifs -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-building-fill text-primary me-2"></i>Classes — année en cours</span>
+        <a href="{% url 'classe_list' %}" class="btn btn-sm btn-outline-primary">Gérer</a>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0 small">
+          <thead><tr><th>Classe</th><th>Section</th><th>Matières</th><th>Élèves</th></tr></thead>
+          <tbody>
+            {% for c in dernieres_classes %}
+            <tr>
+              <td class="fw-medium">{{ c.nom }}</td>
+              <td>{{ c.section }}</td>
+              <td><span class="badge bg-secondary rounded-pill">{{ c.matieres.count }}</span></td>
+              <td><span class="badge bg-primary rounded-pill">{{ c.eleves.count }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Aucune classe</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if enseignants_sans_matiere %}
+  <!-- Alertes -->
+  <div class="col-12">
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-0">
+      <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+      <span>
+        <strong>{{ enseignants_sans_matiere.count }} enseignant(s)</strong> sans matière affectée :
+        {% for t in enseignants_sans_matiere %}{{ t.nom_complet }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+        <a href="{% url 'affectation_list' %}" class="alert-link">Affecter maintenant →</a>
+      </span>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Actions rapides -->
+<div class="card mt-4">
+  <div class="card-header"><i class="bi bi-lightning-fill text-warning me-2"></i>Actions rapides</div>
+  <div class="card-body d-flex flex-wrap gap-2">
+    <a href="{% url 'student_create' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person-plus me-1"></i>Nouvel élève</a>
+    <a href="{% url 'teacher_create' %}" class="btn btn-outline-success btn-sm"><i class="bi bi-person-badge me-1"></i>Nouvel enseignant</a>
+    <a href="{% url 'classe_create' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-building me-1"></i>Nouvelle classe</a>
+    <a href="{% url 'matiere_create' %}" class="btn btn-outline-warning btn-sm"><i class="bi bi-book me-1"></i>Nouvelle matière</a>
+    <a href="{% url 'affectation_list' %}" class="btn btn-outline-dark btn-sm"><i class="bi bi-link me-1"></i>Affecter matière → classe</a>
+    <a href="{% url 'bulletin_create' %}" class="btn btn-outline-info btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Créer un bulletin</a>
+    <a href="{% url 'rapport_resultats' %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trophy me-1"></i>Voir les résultats</a>
+  </div>
+</div>
+{% endblock %}

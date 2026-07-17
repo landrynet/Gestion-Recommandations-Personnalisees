@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block title %}Matières{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Matières</li>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><i class="bi bi-book-fill text-primary me-2"></i>Matières globales</h1>
+  <div class="d-flex gap-2">
+    <a href="{% url 'affectation_list' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-link-45deg me-1"></i>Affecter aux classes</a>
+    <a href="{% url 'matiere_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i>Nouvelle matière</a>
+  </div>
+</div>
+
+<div class="alert alert-info py-2 small mb-3">
+  <i class="bi bi-info-circle me-1"></i>
+  Les matières ici sont <strong>globales</strong>. Pour qu'une matière apparaisse dans une classe ou un bulletin,
+  vous devez l'<a href="{% url 'affectation_list' %}" class="alert-link">affecter à une classe</a>.
+</div>
+
+<div class="row g-3">
+  <!-- MAXIMA 20 -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header" style="background:rgba(217,119,6,0.1);border-bottom:2px solid #D97706">
+        <span class="fw-bold" style="color:#D97706">MAXIMA 20</span>
+        <span class="badge bg-warning text-dark float-end">{{ matieres_20.count }}</span>
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for m in matieres_20 %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <span class="small fw-medium">{{ m.nom }}</span>
+            <div>
+              <a href="{% url 'matiere_update' m.pk %}" class="btn btn-xs btn-outline-secondary me-1 py-0 px-1" style="font-size:0.7rem"><i class="bi bi-pencil"></i></a>
+              <a href="{% url 'matiere_delete' m.pk %}" class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:0.7rem"><i class="bi bi-trash"></i></a>
+            </div>
+          </li>
+          {% empty %}
+          <li class="list-group-item text-muted small py-3 text-center">Aucune matière</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <!-- MAXIMA 30 -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header" style="background:rgba(8,145,178,0.1);border-bottom:2px solid #0891B2">
+        <span class="fw-bold" style="color:#0891B2">MAXIMA 30</span>
+        <span class="badge bg-info text-dark float-end">{{ matieres_30.count }}</span>
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for m in matieres_30 %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <span class="small fw-medium">{{ m.nom }}</span>
+            <div>
+              <a href="{% url 'matiere_update' m.pk %}" class="btn btn-xs btn-outline-secondary me-1 py-0 px-1" style="font-size:0.7rem"><i class="bi bi-pencil"></i></a>
+              <a href="{% url 'matiere_delete' m.pk %}" class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:0.7rem"><i class="bi bi-trash"></i></a>
+            </div>
+          </li>
+          {% empty %}
+          <li class="list-group-item text-muted small py-3 text-center">Aucune matière</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <!-- MAXIMA 60 -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header" style="background:rgba(220,38,38,0.1);border-bottom:2px solid #DC2626">
+        <span class="fw-bold" style="color:#DC2626">MAXIMA 60</span>
+        <span class="badge bg-danger float-end">{{ matieres_60.count }}</span>
+      </div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for m in matieres_60 %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <span class="small fw-medium">{{ m.nom }}</span>
+            <div>
+              <a href="{% url 'matiere_update' m.pk %}" class="btn btn-xs btn-outline-secondary me-1 py-0 px-1" style="font-size:0.7rem"><i class="bi bi-pencil"></i></a>
+              <a href="{% url 'matiere_delete' m.pk %}" class="btn btn-xs btn-outline-danger py-0 px-1" style="font-size:0.7rem"><i class="bi bi-trash"></i></a>
+            </div>
+          </li>
+          {% empty %}
+          <li class="list-group-item text-muted small py-3 text-center">Aucune matière</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Résumé par classe -->
+{% if classes %}
+<div class="card mt-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table text-primary me-2"></i>Matières par classe — {{ annee }}</span>
+    <a href="{% url 'affectation_list' %}" class="btn btn-sm btn-outline-primary">Gérer les affectations</a>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 small">
+      <thead><tr><th>Classe</th><th>Section</th><th>Matières affectées</th><th>Max. 20</th><th>Max. 30</th><th>Max. 60</th><th class="text-end">Gérer</th></tr></thead>
+      <tbody>
+        {% for c in classes %}
+        <tr>
+          <td class="fw-medium">{{ c.nom }}</td>
+          <td>{{ c.section }}</td>
+          <td><span class="badge bg-primary rounded-pill">{{ c.matieres.count }}</span></td>
+          <td><span class="badge bg-warning text-dark rounded-pill">{{ c.matieres.filter_20|default:"0" }}</span></td>
+          <td><span class="badge bg-info text-dark rounded-pill">{{ c.matieres.filter_30|default:"0" }}</span></td>
+          <td><span class="badge bg-danger rounded-pill">{{ c.matieres.filter_60|default:"0" }}</span></td>
+          <td class="text-end">
+            <a href="{% url 'affectation_list' %}?classe={{ c.pk }}" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size:0.75rem">
+              <i class="bi bi-gear me-1"></i>Gérer
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

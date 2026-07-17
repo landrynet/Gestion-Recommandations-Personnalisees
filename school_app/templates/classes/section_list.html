@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Sections{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">Sections</li>{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Sections</h1>
+  <a href="{% url 'section_create' %}" class="btn btn-primary"><i class="bi bi-plus me-1"></i>Nouvelle section</a>
+</div>
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover">
+      <thead><tr><th>Section</th><th>Classes</th><th class="text-end">Actions</th></tr></thead>
+      <tbody>
+        {% for s in sections %}
+        <tr>
+          <td class="fw-medium">{{ s.nom }}</td>
+          <td><span class="badge bg-primary rounded-pill">{{ s.classes.count }}</span></td>
+          <td class="text-end">
+            <a href="{% url 'section_update' s.pk %}" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'section_delete' s.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" class="text-center text-muted py-4">Aucune section</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
