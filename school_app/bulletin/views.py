@@ -22,24 +22,22 @@ def bulletin_list(request):
 @login_required
 @prefet_required
 def bulletin_create(request):
-    annee = AnneeScolaire.objects.filter(active=True).first()
+    annee   = AnneeScolaire.objects.filter(active=True).first()
     classes = Classe.objects.filter(annee_scolaire=annee).select_related('section') if annee else []
 
-    # La classe peut être pré-sélectionnée via GET ou POST
-    classe_id = request.GET.get('classe') or request.POST.get('classe')
+    classe_id      = request.GET.get('classe') or request.POST.get('classe')
     selected_classe = None
     matieres_20 = matieres_30 = matieres_60 = []
 
     if classe_id:
         selected_classe = get_object_or_404(Classe, pk=classe_id)
-        # UNIQUEMENT les matières affectées à CETTE classe
-        mc_qs = MatiereClasse.objects.filter(classe=selected_classe).select_related('matiere')
+        mc_qs       = MatiereClasse.objects.filter(classe=selected_classe).select_related('matiere')
         matieres_20 = [mc.matiere for mc in mc_qs if mc.matiere.maxima == 20]
         matieres_30 = [mc.matiere for mc in mc_qs if mc.matiere.maxima == 30]
         matieres_60 = [mc.matiere for mc in mc_qs if mc.matiere.maxima == 60]
 
     if request.method == 'POST' and selected_classe:
-        annee_id = request.POST.get('annee_scolaire')
+        annee_id  = request.POST.get('annee_scolaire')
         annee_obj = get_object_or_404(AnneeScolaire, pk=annee_id) if annee_id else annee
 
         modele, created = ModeleBulletin.objects.get_or_create(
@@ -61,28 +59,22 @@ def bulletin_create(request):
         messages.error(request, "Veuillez sélectionner une classe.")
 
     return render(request, 'bulletin/bulletin_form.html', {
-        'classes': classes,
-        'annees': AnneeScolaire.objects.all(),
-        'annee': annee,
+        'classes': classes, 'annees': AnneeScolaire.objects.all(), 'annee': annee,
         'titre': 'Créer un modèle de bulletin',
         'selected_classe': selected_classe,
-        'matieres_20': matieres_20,
-        'matieres_30': matieres_30,
-        'matieres_60': matieres_60,
-        'selected_ids': set(),
-        'classe_id': classe_id or '',
+        'matieres_20': matieres_20, 'matieres_30': matieres_30, 'matieres_60': matieres_60,
+        'selected_ids': set(), 'classe_id': classe_id or '',
     })
 
 
 @login_required
 @prefet_required
 def bulletin_update(request, pk):
-    modele = get_object_or_404(ModeleBulletin, pk=pk)
-    annee = AnneeScolaire.objects.filter(active=True).first()
+    modele  = get_object_or_404(ModeleBulletin, pk=pk)
+    annee   = AnneeScolaire.objects.filter(active=True).first()
     classes = Classe.objects.filter(annee_scolaire=annee).select_related('section') if annee else []
 
-    # Matières de la classe de ce modèle
-    mc_qs = MatiereClasse.objects.filter(classe=modele.classe).select_related('matiere')
+    mc_qs       = MatiereClasse.objects.filter(classe=modele.classe).select_related('matiere')
     matieres_20 = [mc.matiere for mc in mc_qs if mc.matiere.maxima == 20]
     matieres_30 = [mc.matiere for mc in mc_qs if mc.matiere.maxima == 30]
     matieres_60 = [mc.matiere for mc in mc_qs if mc.matiere.maxima == 60]
@@ -100,17 +92,11 @@ def bulletin_update(request, pk):
 
     selected_ids = set(modele.matieres.values_list('matiere_id', flat=True))
     return render(request, 'bulletin/bulletin_form.html', {
-        'classes': classes,
-        'annees': AnneeScolaire.objects.all(),
-        'annee': annee,
+        'classes': classes, 'annees': AnneeScolaire.objects.all(), 'annee': annee,
         'titre': f'Modifier le bulletin — {modele.classe}',
-        'obj': modele,
-        'selected_classe': modele.classe,
-        'matieres_20': matieres_20,
-        'matieres_30': matieres_30,
-        'matieres_60': matieres_60,
-        'selected_ids': selected_ids,
-        'classe_id': str(modele.classe.pk),
+        'obj': modele, 'selected_classe': modele.classe,
+        'matieres_20': matieres_20, 'matieres_30': matieres_30, 'matieres_60': matieres_60,
+        'selected_ids': selected_ids, 'classe_id': str(modele.classe.pk),
     })
 
 
@@ -140,14 +126,11 @@ def bulletin_publish(request, pk):
 @login_required
 def bulletin_classe(request, pk):
     modele = get_object_or_404(ModeleBulletin, pk=pk)
-    # Préfet voit tout, enseignant bloqué
     if request.user.is_enseignant():
         messages.error(request, "Accès réservé au Préfet.")
         return redirect('dashboard')
     eleves = Student.objects.filter(classe=modele.classe).order_by('nom', 'postnom')
-    return render(request, 'bulletin/bulletin_classe.html', {
-        'modele': modele, 'eleves': eleves
-    })
+    return render(request, 'bulletin/bulletin_classe.html', {'modele': modele, 'eleves': eleves})
 
 
 @login_required
@@ -158,13 +141,13 @@ def bulletin_eleve(request, pk, eleve_pk):
         return redirect('dashboard')
     eleve = get_object_or_404(Student, pk=eleve_pk)
     matieres_data = []
-    total_obtenu = Decimal('0')
-    total_max_tg = Decimal('0')
+    total_obtenu  = Decimal('0')
+    total_max_tg  = Decimal('0')
 
     for bm in modele.matieres.select_related('matiere').order_by('matiere__maxima', 'ordre'):
-        mat = bm.matiere
-        notes_dict = {}
+        mat     = bm.matiere
         periodes = ['1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2', 'REPECHAGE']
+        notes_dict = {}
         try:
             mc = MatiereClasse.objects.get(matiere=mat, classe=modele.classe)
             for p in periodes:
@@ -177,7 +160,7 @@ def bulletin_eleve(request, pk, eleve_pk):
             for p in periodes:
                 notes_dict[p] = None
 
-        mx = mat.maxima
+        mx   = mat.maxima
         n1p  = notes_dict.get('1P')    or Decimal('0')
         n2p  = notes_dict.get('2P')    or Decimal('0')
         ne1  = notes_dict.get('EXAM1') or Decimal('0')
@@ -185,25 +168,28 @@ def bulletin_eleve(request, pk, eleve_pk):
         n4p  = notes_dict.get('4P')    or Decimal('0')
         ne2  = notes_dict.get('EXAM2') or Decimal('0')
 
-        tot_s1 = n1p + n2p + ne1
-        tot_s2 = n3p + n4p + ne2
-        tg     = tot_s1 + tot_s2
+        has_s1 = any(notes_dict.get(p) is not None for p in ('1P', '2P', 'EXAM1'))
+        has_s2 = any(notes_dict.get(p) is not None for p in ('3P', '4P', 'EXAM2'))
+
+        tot_s1 = (n1p + n2p + ne1) if has_s1 else None
+        tot_s2 = (n3p + n4p + ne2) if has_s2 else None
+        tg     = (tot_s1 or Decimal('0')) + (tot_s2 or Decimal('0'))
         max_tg = Decimal(mx) * 8
 
         total_obtenu += tg
         total_max_tg += max_tg
 
         matieres_data.append({
-            'matiere': mat,
-            'n1p':  notes_dict.get('1P'),
-            'n2p':  notes_dict.get('2P'),
-            'nexam1': notes_dict.get('EXAM1'),
-            'tot_s1': tot_s1,
-            'n3p':  notes_dict.get('3P'),
-            'n4p':  notes_dict.get('4P'),
-            'nexam2': notes_dict.get('EXAM2'),
-            'tot_s2': tot_s2,
-            'tg': tg,
+            'matiere':   mat,
+            'n1p':       notes_dict.get('1P'),
+            'n2p':       notes_dict.get('2P'),
+            'nexam1':    notes_dict.get('EXAM1'),
+            'tot_s1':    tot_s1,
+            'n3p':       notes_dict.get('3P'),
+            'n4p':       notes_dict.get('4P'),
+            'nexam2':    notes_dict.get('EXAM2'),
+            'tot_s2':    tot_s2,
+            'tg':        tg,
             'repechage': notes_dict.get('REPECHAGE'),
         })
 
@@ -212,13 +198,14 @@ def bulletin_eleve(request, pk, eleve_pk):
     nb_eleves   = eleve.classe.eleves.count() if eleve.classe else 0
 
     return render(request, 'bulletin/bulletin_eleve.html', {
-        'modele': modele, 'eleve': eleve,
+        'modele':       modele,
+        'eleve':        eleve,
         'matieres_data': matieres_data,
         'total_obtenu': total_obtenu,
-        'total_max': total_max_tg,
-        'pourcentage': pourcentage,
-        'classement': classement,
-        'nb_eleves': nb_eleves,
+        'total_max':    total_max_tg,
+        'pourcentage':  pourcentage,
+        'classement':   classement,
+        'nb_eleves':    nb_eleves,
     })
 
 

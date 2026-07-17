@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .pdf_views import bulletin_eleve_pdf
 
 urlpatterns = [
     path('', views.bulletin_list, name='bulletin_list'),
@@ -9,4 +10,5 @@ urlpatterns = [
     path('<int:pk>/publier/', views.bulletin_publish, name='bulletin_publish'),
     path('<int:pk>/classe/', views.bulletin_classe, name='bulletin_classe'),
     path('<int:pk>/eleve/<int:eleve_pk>/', views.bulletin_eleve, name='bulletin_eleve'),
+    path('<int:pk>/eleve/<int:eleve_pk>/pdf/', bulletin_eleve_pdf, name='bulletin_eleve_pdf'),
 ]
