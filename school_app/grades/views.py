@@ -247,142 +247,269 @@ def export_notes_excel(request):
     eleves = Student.objects.filter(classe=mc.classe).order_by('nom', 'postnom')
     school = SchoolInfo.get_info()
 
+    nb_cols = 4 + len(periodes)  # N°, Matricule, Nom, Postnom + périodes
+    last_col_letter = get_column_letter(nb_cols)
+
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = f"{mc.matiere.nom[:20]}"
+    ws.title = f"{mc.matiere.nom[:28]}"
 
-    # ── Styles ──
-    hdr_font    = Font(bold=True, size=11)
-    title_font  = Font(bold=True, size=13)
-    center      = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    left        = Alignment(horizontal='left', vertical='center')
-    fill_header = PatternFill('solid', fgColor='1565C0')
-    fill_sub    = PatternFill('solid', fgColor='CFD8DC')
-    fill_max    = PatternFill('solid', fgColor='ECEFF1')
-    white_font  = Font(bold=True, color='FFFFFF', size=10)
-    thin        = Side(style='thin', color='888888')
-    border      = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-    # ── En-tête école ──
-    ws.merge_cells('A1:A3')
-    ws['A1'] = 'REPUBLIQUE DEMOCRATIQUE DU CONGO'
-    ws['A1'].font = Font(bold=True, size=10)
-    ws['A1'].alignment = center
-
-    ws.merge_cells(f'B1:{get_column_letter(4 + len(periodes))}3')
-    school_nom = school.nom if school else 'ÉCOLE'
-    school_ann = f"Année scolaire : {mc.classe.annee_scolaire}" if hasattr(mc.classe, 'annee_scolaire') and mc.classe.annee_scolaire else ''
-    ws[f'B1'] = f"{school_nom}\n{school_ann}\nFEUILLE DE NOTES — {mc.matiere.nom} — {mc.classe}"
-    ws[f'B1'].font = title_font
-    ws[f'B1'].alignment = center
-    ws.row_dimensions[1].height = 50
-    ws.row_dimensions[2].height = 15
-    ws.row_dimensions[3].height = 15
-
-    # ── Info matière ──
-    row = 4
-    ws.merge_cells(f'A{row}:{get_column_letter(4 + len(periodes))}{row}')
     max_normal = mc.matiere.maxima
-    ws[f'A{row}'] = (
-        f"Matière : {mc.matiere.nom}  |  Classe : {mc.classe}  |  "
-        f"Maxima période normale : {max_normal}  |  Maxima examen : {max_normal * 2}  |  "
-        f"NE PAS modifier les colonnes N°, Matricule, Nom"
-    )
-    ws[f'A{row}'].font = Font(italic=True, size=9, color='555555')
-    ws[f'A{row}'].alignment = left
-    ws.row_dimensions[row].height = 18
 
-    # ── Métadonnées cachées pour import ──
-    row = 5
-    ws[f'A{row}'] = 'META_MC_ID'
-    ws[f'B{row}'] = mc.pk
-    ws[f'A{row}'].font = Font(color='FFFFFF')
-    ws[f'B{row}'].font = Font(color='FFFFFF')
+    # ── Styles réutilisables ──
+    center    = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left      = Alignment(horizontal='left',   vertical='center')
+    right_al  = Alignment(horizontal='right',  vertical='center')
 
-    # ── En-têtes colonnes ──
-    row = 6
+    def thin_border(color='BDBDBD'):
+        s = Side(style='thin', color=color)
+        return Border(left=s, right=s, top=s, bottom=s)
+
+    def thick_border():
+        tk = Side(style='medium', color='1565C0')
+        return Border(left=tk, right=tk, top=tk, bottom=tk)
+
+    fill_blue_dark  = PatternFill('solid', fgColor='1565C0')   # en-tête colonnes
+    fill_blue_mid   = PatternFill('solid', fgColor='1976D2')   # sous-en-tête
+    fill_blue_light = PatternFill('solid', fgColor='E3F2FD')   # maxima
+    fill_gray_light = PatternFill('solid', fgColor='F5F5F5')   # colonnes fixes élèves
+    fill_stripe     = PatternFill('solid', fgColor='FAFAFA')   # lignes paires
+    fill_note       = PatternFill('solid', fgColor='FFFFFF')   # cellules notes
+
+    white_bold = Font(bold=True, color='FFFFFF', size=10)
+    white_reg  = Font(color='FFFFFF', size=9)
+    dark_bold  = Font(bold=True, color='212121', size=10)
+    dark_reg   = Font(color='424242', size=9)
+    muted_font = Font(color='757575', size=8, italic=True)
+    blue_font  = Font(bold=True, color='1565C0', size=11)
+
+    # ══════════════════════════════════════════════
+    # LIGNE 1 : République Démocratique du Congo
+    # ══════════════════════════════════════════════
+    ws.merge_cells(f'A1:{last_col_letter}1')
+    c = ws['A1']
+    c.value     = 'RÉPUBLIQUE DÉMOCRATIQUE DU CONGO'
+    c.font      = Font(bold=True, size=11, color='B71C1C')
+    c.alignment = center
+    c.fill      = PatternFill('solid', fgColor='FAFAFA')
+    ws.row_dimensions[1].height = 20
+
+    # ══════════════════════════════════════════════
+    # LIGNE 2 : Ministère + nom école
+    # ══════════════════════════════════════════════
+    school_nom = school.nom if school else 'ÉCOLE'
+    ws.merge_cells(f'A2:{last_col_letter}2')
+    c = ws['A2']
+    c.value     = f"Ministère de l'EPST  ·  {school_nom}"
+    c.font      = Font(bold=True, size=12, color='1565C0')
+    c.alignment = center
+    c.fill      = PatternFill('solid', fgColor='E3F2FD')
+    ws.row_dimensions[2].height = 22
+
+    # ══════════════════════════════════════════════
+    # LIGNE 3 : Titre du document
+    # ══════════════════════════════════════════════
+    ws.merge_cells(f'A3:{last_col_letter}3')
+    c = ws['A3']
+    c.value     = 'FEUILLE DE NOTES'
+    c.font      = Font(bold=True, size=14, color='FFFFFF')
+    c.alignment = center
+    c.fill      = fill_blue_dark
+    ws.row_dimensions[3].height = 26
+
+    # ══════════════════════════════════════════════
+    # LIGNE 4 : Infos matière / classe / enseignant
+    # ══════════════════════════════════════════════
+    try:
+        ens_nom = mc.enseignant.nom_complet
+    except Exception:
+        ens_nom = '—'
+    school_ann = str(mc.classe.annee_scolaire) if hasattr(mc.classe, 'annee_scolaire') and mc.classe.annee_scolaire else ''
+
+    mid = nb_cols // 2
+    # Bloc gauche : matière & classe
+    ws.merge_cells(f'A4:{get_column_letter(mid)}4')
+    c = ws['A4']
+    c.value     = f"Matière : {mc.matiere.nom}   |   Classe : {mc.classe}"
+    c.font      = Font(bold=True, size=10, color='1565C0')
+    c.alignment = left
+    c.fill      = PatternFill('solid', fgColor='E8F5E9')
+    ws.row_dimensions[4].height = 20
+
+    # Bloc droit : enseignant & année
+    ws.merge_cells(f'{get_column_letter(mid+1)}4:{last_col_letter}4')
+    c = ws[f'{get_column_letter(mid+1)}4']
+    c.value     = f"Enseignant : {ens_nom}   |   Année : {school_ann}"
+    c.font      = Font(bold=True, size=10, color='1565C0')
+    c.alignment = right_al
+    c.fill      = PatternFill('solid', fgColor='E8F5E9')
+
+    # ══════════════════════════════════════════════
+    # LIGNE 5 : Métadonnées cachées (fond blanc pur, police blanche = invisible)
+    # ══════════════════════════════════════════════
+    ws['A5'] = 'META_MC_ID'
+    ws['B5'] = mc.pk
+    ws['A5'].font = Font(color='FFFFFF', size=1)
+    ws['B5'].font = Font(color='FFFFFF', size=1)
+    ws.row_dimensions[5].height = 4
+
+    # ══════════════════════════════════════════════
+    # LIGNE 6 : En-têtes colonnes
+    # ══════════════════════════════════════════════
     headers = ['N°', 'Matricule', 'Nom', 'Postnom'] + [label for _, label in periodes]
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=row, column=col, value=h)
-        cell.font = white_font
-        cell.fill = fill_header
-        cell.alignment = center
-        cell.border = border
-    ws.row_dimensions[row].height = 30
+    for col_i, h in enumerate(headers, 1):
+        c = ws.cell(row=6, column=col_i, value=h)
+        c.font      = white_bold
+        c.fill      = fill_blue_dark
+        c.alignment = center
+        c.border    = thin_border('90A4AE')
+    ws.row_dimensions[6].height = 32
 
-    # ── Largeurs colonnes ──
-    ws.column_dimensions['A'].width = 5
-    ws.column_dimensions['B'].width = 14
-    ws.column_dimensions['C'].width = 18
-    ws.column_dimensions['D'].width = 18
-    for i in range(len(periodes)):
-        ws.column_dimensions[get_column_letter(5 + i)].width = 13
+    # ══════════════════════════════════════════════
+    # LIGNE 7 : MAXIMA
+    # ══════════════════════════════════════════════
+    mx_vals = ['', '', 'MAXIMA /', ''] + [
+        max_normal * 2 if code in ('EXAM1', 'EXAM2') else max_normal
+        for code, _ in periodes
+    ]
+    for col_i, val in enumerate(mx_vals, 1):
+        c = ws.cell(row=7, column=col_i, value=val)
+        c.font      = Font(bold=True, size=9, color='1565C0')
+        c.fill      = fill_blue_light
+        c.alignment = center
+        c.border    = thin_border('90A4AE')
+    ws.row_dimensions[7].height = 18
 
-    # ── Ligne MAXIMA ──
-    row = 7
-    mx_row = ['', '', 'MAXIMA', '']
-    for code, _ in periodes:
-        max_v = max_normal * 2 if code in ('EXAM1', 'EXAM2') else max_normal
-        mx_row.append(max_v)
-    for col, val in enumerate(mx_row, 1):
-        cell = ws.cell(row=row, column=col, value=val)
-        cell.fill = fill_max
-        cell.font = Font(bold=True, size=9)
-        cell.alignment = center
-        cell.border = border
-    ws.row_dimensions[row].height = 18
+    # ── Auto-filter sur ligne 6 ──
+    ws.auto_filter.ref = f'A6:{last_col_letter}6'
 
-    # ── Données élèves ──
+    # ══════════════════════════════════════════════
+    # LIGNES 8+ : Données élèves
+    # ══════════════════════════════════════════════
     first_data_row = 8
     for i, eleve in enumerate(eleves):
         row = first_data_row + i
-        ws.cell(row=row, column=1, value=i + 1).alignment = center
-        ws.cell(row=row, column=2, value=eleve.matricule).font = Font(size=9)
-        ws.cell(row=row, column=3, value=eleve.nom).font = Font(bold=True, size=9)
-        ws.cell(row=row, column=4, value=eleve.postnom).font = Font(size=9)
+        is_even = (i % 2 == 0)
+        row_fill = fill_stripe if is_even else PatternFill('solid', fgColor='FFFFFF')
 
+        # Colonnes fixes : N°, Matricule, Nom, Postnom
+        row_data = [i + 1, eleve.matricule, eleve.nom, getattr(eleve, 'postnom', '')]
+        for col_i, val in enumerate(row_data, 1):
+            c = ws.cell(row=row, column=col_i, value=val)
+            c.fill      = fill_gray_light if is_even else PatternFill('solid', fgColor='FAFAFA')
+            c.font      = Font(bold=(col_i == 3), size=9, color='212121')
+            c.alignment = center if col_i == 1 else left
+            c.border    = thin_border()
+
+        # Colonnes notes
         for col_i, (code, _) in enumerate(periodes):
             col = 5 + col_i
             max_v = max_normal * 2 if code in ('EXAM1', 'EXAM2') else max_normal
-            # Pré-remplir avec la note existante
             try:
                 note = Note.objects.get(eleve=eleve, matiere_classe=mc, periode=code)
-                val = float(note.valeur)
+                val  = float(note.valeur)
             except Note.DoesNotExist:
                 val = None
 
-            cell = ws.cell(row=row, column=col, value=val)
-            cell.alignment = center
-            cell.border = border
-            cell.font = Font(size=10)
+            c = ws.cell(row=row, column=col, value=val)
+            c.alignment = center
+            c.border    = thin_border()
+            c.font      = Font(bold=bool(val is not None), size=10,
+                               color='1565C0' if val is not None else '9E9E9E')
+            c.fill = fill_note if val is not None else (fill_stripe if is_even else PatternFill('solid', fgColor='FFFFFF'))
 
-            # Validation des données (0 ≤ note ≤ maxima)
+            # Validation données Excel
             dv = DataValidation(
-                type='decimal',
-                operator='between',
-                formula1='0',
-                formula2=str(max_v),
+                type='decimal', operator='between',
+                formula1='0', formula2=str(max_v),
                 showErrorMessage=True,
                 errorTitle='Note invalide',
-                error=f'La note doit être entre 0 et {max_v}',
+                error=f'La note doit être comprise entre 0 et {max_v}',
+                showInputMessage=True,
+                promptTitle='Note',
+                prompt=f'Saisir une note entre 0 et {max_v}',
             )
             ws.add_data_validation(dv)
-            dv.add(cell)
+            dv.add(c)
 
-        # Protéger les colonnes fixes (N°, Matricule, Nom) visuellement
-        for col in [1, 2, 3, 4]:
-            ws.cell(row=row, column=col).fill = fill_max
-            ws.cell(row=row, column=col).border = border
-        ws.row_dimensions[row].height = 18
+        ws.row_dimensions[row].height = 20
 
-    # ── Figer les volets ──
+    # ══════════════════════════════════════════════
+    # LIGNE SIGNATURE (après les élèves + 2 lignes vides)
+    # ══════════════════════════════════════════════
+    last_eleve_row = first_data_row + len(eleves) - 1
+    sig_row = last_eleve_row + 3
+
+    # Séparateur
+    ws.merge_cells(f'A{sig_row}:{last_col_letter}{sig_row}')
+    ws[f'A{sig_row}'].fill = PatternFill('solid', fgColor='E3F2FD')
+    ws.row_dimensions[sig_row].height = 6
+
+    sig_row += 1
+    # Signature enseignant (gauche) + visa préfet (droite)
+    ws.merge_cells(f'A{sig_row}:{get_column_letter(mid)}{sig_row}')
+    c = ws[f'A{sig_row}']
+    c.value     = "Signature de l'enseignant :"
+    c.font      = Font(bold=True, size=9, color='424242')
+    c.alignment = left
+
+    ws.merge_cells(f'{get_column_letter(mid+1)}{sig_row}:{last_col_letter}{sig_row}')
+    c = ws[f'{get_column_letter(mid+1)}{sig_row}']
+    c.value     = "Visa du Préfet des études :"
+    c.font      = Font(bold=True, size=9, color='424242')
+    c.alignment = right_al
+    ws.row_dimensions[sig_row].height = 18
+
+    sig_row += 3
+    ws.merge_cells(f'A{sig_row}:{get_column_letter(mid)}{sig_row}')
+    ws[f'A{sig_row}'].border = Border(bottom=Side(style='medium', color='424242'))
+
+    ws.merge_cells(f'{get_column_letter(mid+1)}{sig_row}:{last_col_letter}{sig_row}')
+    ws[f'{get_column_letter(mid+1)}{sig_row}'].border = Border(bottom=Side(style='medium', color='424242'))
+    ws.row_dimensions[sig_row].height = 22
+
+    sig_row += 1
+    ws.merge_cells(f'A{sig_row}:{get_column_letter(mid)}{sig_row}')
+    c = ws[f'A{sig_row}']
+    c.value     = "À _________________, le _________________ 20___"
+    c.font      = muted_font
+    c.alignment = left
+
+    # ── Largeurs colonnes ──
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 15
+    ws.column_dimensions['C'].width = 20
+    ws.column_dimensions['D'].width = 20
+    for i in range(len(periodes)):
+        ltr = get_column_letter(5 + i)
+        ws.column_dimensions[ltr].width = 14
+
+    # ── Figer les volets (ligne 8, col 5) ──
     ws.freeze_panes = ws.cell(row=first_data_row, column=5)
+
+    # ── Mise en page : A4 paysage, ajuster à 1 page de large ──
+    from openpyxl.worksheet.page import PageMargins
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.paperSize   = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth  = 1
+    ws.page_setup.fitToHeight = 0
+    ws.page_setup.fitToPage   = True
+    ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.6, bottom=0.6,
+                                  header=0.3, footer=0.3)
+    # Répéter les lignes d'en-tête à chaque page
+    ws.print_title_rows = '1:7'
+    # Zone d'impression
+    ws.print_area = f'A1:{last_col_letter}{sig_row}'
+
+    # ── Zoom à 90% ──
+    ws.sheet_view.zoomScale = 90
 
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    filename = f"notes_{mc.matiere.nom}_{mc.classe}_{'-'.join(c for c, _ in periodes)}.xlsx"
-    filename = filename.replace(' ', '_').replace('/', '-')
+    filename = (
+        f"notes_{mc.matiere.nom}_{mc.classe}_{'-'.join(c for c, _ in periodes)}.xlsx"
+    ).replace(' ', '_').replace('/', '-')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     wb.save(response)
     return response

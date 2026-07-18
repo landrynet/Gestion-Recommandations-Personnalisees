@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,7 +11,7 @@
 <body>
 {% if user.is_authenticated %}
 
-<!-- ═══════════════════ SIDEBAR PRÉFET ═══════════════════ -->
+<!-- ═══════════════ SIDEBAR PRÉFET ═══════════════ -->
 {% if user.is_prefet %}
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
@@ -26,7 +26,6 @@
     <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
       <i class="bi bi-grid-1x2-fill"></i><span>Tableau de bord</span>
     </a>
-
     <div class="nav-section-label">Gestion</div>
     <a href="{% url 'student_list' %}" class="nav-link {% if 'student' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-people-fill"></i><span>Élèves</span>
@@ -40,12 +39,10 @@
     <a href="{% url 'matiere_list' %}" class="nav-link {% if 'matiere' in request.resolver_match.url_name or 'affectation' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-book-fill"></i><span>Matières & affectations</span>
     </a>
-
     <div class="nav-section-label">Bulletins</div>
     <a href="{% url 'bulletin_list' %}" class="nav-link {% if 'bulletin' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-file-earmark-text-fill"></i><span>Modèles de bulletins</span>
     </a>
-
     <div class="nav-section-label">Rapports</div>
     <a href="{% url 'rapport_eleves' %}" class="nav-link {% if request.resolver_match.url_name == 'rapport_eleves' %}active{% endif %}">
       <i class="bi bi-people"></i><span>Rapport élèves</span>
@@ -67,7 +64,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════ SIDEBAR ENSEIGNANT ═══════════════════ -->
+<!-- ═══════════════ SIDEBAR ENSEIGNANT ═══════════════ -->
 {% else %}
 <div class="sidebar" id="sidebar">
   <div class="sidebar-header">
@@ -82,7 +79,6 @@
     <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
       <i class="bi bi-grid-1x2-fill"></i><span>Mon tableau de bord</span>
     </a>
-
     <div class="nav-section-label">Notes</div>
     <a href="{% url 'saisie_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'saisie_notes' %}active{% endif %}">
       <i class="bi bi-pencil-square"></i><span>Saisie des notes</span>
@@ -99,24 +95,42 @@
 </div>
 {% endif %}
 
-<!-- Main -->
+<!-- ═══════════════ MAIN ═══════════════ -->
 <div class="main-content" id="main-content">
+
   <!-- Topbar -->
   <header class="topbar">
-    <button class="btn btn-link text-dark p-0 me-3" id="sidebar-toggle">
-      <i class="bi bi-list fs-4"></i>
+    <button class="btn btn-link text-secondary p-0 me-2" id="sidebar-toggle" style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+      <i class="bi bi-list fs-5"></i>
     </button>
+
     <nav aria-label="breadcrumb" class="flex-grow-1">
       <ol class="breadcrumb mb-0 small">
         <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Accueil</a></li>
         {% block breadcrumb %}{% endblock %}
       </ol>
     </nav>
-    <div class="topbar-user">
-      <span class="badge {% if user.is_prefet %}bg-primary{% else %}bg-success{% endif %} me-2">
-        {{ user.get_role_display }}
-      </span>
-      <span class="fw-semibold small">{{ user.get_full_name|default:user.username }}</span>
+
+    <!-- Horloge -->
+    <div class="topbar-clock d-none d-md-flex flex-column align-items-end me-3">
+      <span id="topbar-time" class="clock-time fw-bold" style="font-size:0.9rem;font-variant-numeric:tabular-nums;color:var(--color-text)"></span>
+      <span id="topbar-date" class="clock-date" style="font-size:0.68rem;color:var(--color-muted)"></span>
+    </div>
+
+    <!-- Actions barre -->
+    <div class="topbar-actions">
+      <!-- Toggle dark/light -->
+      <button class="btn-theme-toggle" id="theme-toggle" title="Changer le thème">
+        <i class="bi bi-moon-fill" id="theme-icon"></i>
+      </button>
+
+      <!-- Utilisateur -->
+      <div class="topbar-user ms-1">
+        <span class="badge {% if user.is_prefet %}bg-primary{% else %}bg-success{% endif %}">
+          {{ user.get_role_display }}
+        </span>
+        <span class="fw-semibold small ms-1 d-none d-sm-inline">{{ user.get_full_name|default:user.username }}</span>
+      </div>
     </div>
   </header>
 
@@ -132,7 +146,7 @@
   </div>
 
   <!-- Page content -->
-  <main class="page-content px-4 pb-4">
+  <main class="page-content px-4 pb-5">
     {% block content %}{% endblock %}
   </main>
 </div>
@@ -143,17 +157,72 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  const toggle = document.getElementById('sidebar-toggle');
-  if (toggle) {
-    toggle.addEventListener('click', () => {
-      document.getElementById('sidebar').classList.toggle('collapsed');
-      document.getElementById('main-content').classList.toggle('expanded');
+// ── Sidebar toggle ──
+const toggle = document.getElementById('sidebar-toggle');
+if (toggle) {
+  toggle.addEventListener('click', () => {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+    document.getElementById('main-content').classList.toggle('expanded');
+  });
+}
+
+// ── Auto-dismiss alerts ──
+document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
+  const bsAlert = bootstrap.Alert.getOrCreateInstance(a);
+  if (bsAlert) bsAlert.close();
+}, 5000));
+
+// ── Dark / Light mode ──
+(function() {
+  const html        = document.documentElement;
+  const btn         = document.getElementById('theme-toggle');
+  const icon        = document.getElementById('theme-icon');
+  const KEY         = 'sgn_theme';
+
+  function applyTheme(theme) {
+    html.setAttribute('data-theme', theme);
+    if (icon) {
+      icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+    }
+    if (btn) btn.title = theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre';
+  }
+
+  // Charger la préférence sauvegardée
+  const saved = localStorage.getItem(KEY) || 'light';
+  applyTheme(saved);
+
+  if (btn) {
+    btn.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      localStorage.setItem(KEY, next);
     });
   }
-  document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
-    const bsAlert = bootstrap.Alert.getOrCreateInstance(a);
-    if (bsAlert) bsAlert.close();
-  }, 4000));
+})();
+
+// ── Horloge topbar ──
+(function() {
+  const JOURS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const MOIS  = ['janvier','février','mars','avril','mai','juin',
+                 'juillet','août','septembre','octobre','novembre','décembre'];
+  const elTime = document.getElementById('topbar-time');
+  const elDate = document.getElementById('topbar-date');
+  if (!elTime) return;
+
+  function tick() {
+    const now = new Date();
+    const hh  = String(now.getHours()).padStart(2,'0');
+    const mm  = String(now.getMinutes()).padStart(2,'0');
+    const ss  = String(now.getSeconds()).padStart(2,'0');
+    elTime.textContent = `${hh}:${mm}:${ss}`;
+    if (elDate) {
+      elDate.textContent = `${JOURS[now.getDay()]} ${now.getDate()} ${MOIS[now.getMonth()]} ${now.getFullYear()}`;
+    }
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
 </script>
 {% block extra_js %}{% endblock %}
 </body>
