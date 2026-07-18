@@ -33,7 +33,7 @@ def rapport_enseignants(request):
         'matieres_enseignees__matiere',
         'matieres_enseignees__classe',
         'matieres_enseignees__classe__section',
-    ).order_by('nom')
+    ).order_by('user__last_name', 'user__first_name')
     return render(request, 'reports/rapport_enseignants.html', {'teachers': teachers})
 
 

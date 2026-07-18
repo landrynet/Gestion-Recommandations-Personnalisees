@@ -2,9 +2,26 @@
 {% load grades_tags %}
 {% block title %}Saisie des notes{% endblock %}
 {% block breadcrumb %}<li class="breadcrumb-item active">Saisie des notes</li>{% endblock %}
+
 {% block content %}
-<div class="page-header">
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
   <h1 class="page-title"><i class="bi bi-pencil-square text-primary me-2"></i>Saisie des notes</h1>
+  <div class="d-flex gap-2 no-print">
+    {% if matiere_classe %}
+    <a href="{% url 'export_notes_excel' %}?mc={{ mc_id }}&periodes={{ periode }}"
+       class="btn btn-success btn-sm">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exporter Excel
+    </a>
+    {% endif %}
+    <a href="{% url 'import_notes_excel' %}" class="btn btn-outline-success btn-sm">
+      <i class="bi bi-file-earmark-arrow-up me-1"></i>Importer Excel
+    </a>
+  </div>
+</div>
+
+<!-- Indicateur auto-save -->
+<div id="autosave-bar" class="d-none position-fixed top-0 end-0 m-3" style="z-index:9999">
+  <div id="autosave-msg" class="alert py-2 px-3 shadow-sm small mb-0" style="min-width:200px"></div>
 </div>
 
 <div class="row g-4">
@@ -44,10 +61,36 @@
         <div class="text-muted small mb-1 mt-2">Maxima / période</div>
         <div class="fw-bold">
           {{ matiere_classe.matiere.maxima }}
-          {% if periode == 'EXAM1' or periode == 'EXAM2' %}× 2 = {{ matiere_classe.matiere.maxima|add:matiere_classe.matiere.maxima }}{% endif %}
+          {% if periode == 'EXAM1' or periode == 'EXAM2' %}
+            × 2 = {{ matiere_classe.matiere.maxima|add:matiere_classe.matiere.maxima }}
+          {% endif %}
         </div>
         <div class="text-muted small mb-1 mt-2">Élèves</div>
         <div class="fw-bold">{{ eleves.count }}</div>
+        <hr class="my-2">
+        <div class="text-muted small mb-1"><i class="bi bi-lightning-charge text-warning me-1"></i>Auto-save actif</div>
+        <div class="small text-muted">Chaque note est sauvegardée dès que vous quittez le champ.</div>
+      </div>
+    </div>
+
+    <!-- Export multi-périodes -->
+    <div class="card mt-3">
+      <div class="card-header fw-bold small"><i class="bi bi-file-earmark-excel text-success me-1"></i>Export Excel</div>
+      <div class="card-body p-2">
+        <form method="get" action="{% url 'export_notes_excel' %}">
+          <input type="hidden" name="mc" value="{{ mc_id }}">
+          <div class="small text-muted mb-2">Sélectionner les périodes à exporter :</div>
+          {% for code, label in periodes %}
+          <div class="form-check form-check-sm">
+            <input class="form-check-input" type="checkbox" name="periodes" value="{{ code }}"
+                   id="per_{{ code }}" {% if code == periode %}checked{% endif %}>
+            <label class="form-check-label small" for="per_{{ code }}">{{ label }}</label>
+          </div>
+          {% endfor %}
+          <button type="submit" class="btn btn-success btn-sm w-100 mt-2">
+            <i class="bi bi-download me-1"></i>Télécharger
+          </button>
+        </form>
       </div>
     </div>
     {% endif %}
@@ -59,12 +102,15 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>
-          <strong>{{ matiere_classe.matiere }}</strong> — {{ matiere_classe.classe }} — 
+          <strong>{{ matiere_classe.matiere }}</strong> — {{ matiere_classe.classe }} —
           {% for code, label in periodes %}{% if code == periode %}<span class="badge bg-primary">{{ label }}</span>{% endif %}{% endfor %}
+        </span>
+        <span class="badge bg-light text-muted border small">
+          <i class="bi bi-lightning-charge text-warning me-1"></i>Auto-save
         </span>
       </div>
       <div class="card-body p-0">
-        <form method="post">
+        <form method="post" id="notes-form">
           {% csrf_token %}
           <input type="hidden" name="mc" value="{{ mc_id }}">
           <input type="hidden" name="periode" value="{{ periode }}">
@@ -74,7 +120,13 @@
                 <th style="width:40px">#</th>
                 <th>Élève</th>
                 <th>Matricule</th>
-                <th style="width:120px">Note</th>
+                <th style="width:150px">
+                  Note
+                  <span class="text-muted small fw-normal">
+                    / {% if periode == 'EXAM1' or periode == 'EXAM2' %}{{ matiere_classe.matiere.maxima|add:matiere_classe.matiere.maxima }}{% else %}{{ matiere_classe.matiere.maxima }}{% endif %}
+                  </span>
+                </th>
+                <th style="width:36px"></th>
               </tr>
             </thead>
             <tbody>
@@ -83,20 +135,31 @@
                 <td class="text-muted">{{ forloop.counter }}</td>
                 <td class="fw-medium">{{ eleve.nom_complet }}</td>
                 <td><code class="small">{{ eleve.matricule }}</code></td>
-                <td>{{ form|get_field:eleve.pk }}</td>
+                <td>
+                  <div class="input-wrapper" data-eleve-id="{{ eleve.pk }}">
+                    {{ form|get_field:eleve.pk }}
+                  </div>
+                </td>
+                <td class="text-center">
+                  <span class="save-indicator" id="ind_{{ eleve.pk }}" title=""></span>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
           <div class="p-3 border-top d-flex justify-content-between align-items-center">
-            <span class="text-muted small">{{ eleves.count }} élève{{ eleves.count|pluralize }}</span>
+            <span class="text-muted small">
+              <i class="bi bi-lightning-charge text-warning me-1"></i>
+              Les notes se sauvegardent automatiquement. Le bouton ci-dessous sauvegarde tout en une fois.
+            </span>
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-save me-1"></i>Enregistrer les notes
+              <i class="bi bi-save me-1"></i>Enregistrer tout
             </button>
           </div>
         </form>
       </div>
     </div>
+
     {% elif not mc_id %}
     <div class="card">
       <div class="card-body text-center text-muted py-5">
@@ -112,7 +175,99 @@
 
 {% block extra_js %}
 <script>
-// Keep filter form state on page load
-const params = new URLSearchParams(window.location.search);
+const AUTOSAVE_URL = "{% url 'autosave_note' %}";
+const MC_ID  = "{{ mc_id }}";
+const PERIODE = "{{ periode }}";
+const CSRF   = "{{ csrf_token }}";
+
+// Afficher un indicateur par élève
+function setIndicator(eleveId, state) {
+  const el = document.getElementById('ind_' + eleveId);
+  if (!el) return;
+  const icons = {
+    saving:  '<span class="spinner-border spinner-border-sm text-secondary" style="width:12px;height:12px"></span>',
+    saved:   '<i class="bi bi-check-circle-fill text-success" title="Sauvegardé"></i>',
+    error:   '<i class="bi bi-x-circle-fill text-danger" title="Erreur"></i>',
+    '':      '',
+  };
+  el.innerHTML = icons[state] || '';
+}
+
+// Barre de statut globale
+let barTimer;
+function showBar(msg, type) {
+  const bar = document.getElementById('autosave-bar');
+  const msgEl = document.getElementById('autosave-msg');
+  bar.classList.remove('d-none');
+  msgEl.className = `alert alert-${type} py-2 px-3 shadow-sm small mb-0`;
+  msgEl.innerHTML = msg;
+  clearTimeout(barTimer);
+  barTimer = setTimeout(() => bar.classList.add('d-none'), 3000);
+}
+
+// Sauvegarder une note individuelle
+async function autosaveNote(input, eleveId) {
+  const valeur = input.value.trim();
+  setIndicator(eleveId, 'saving');
+
+  try {
+    const formData = new FormData();
+    formData.append('mc_id',    MC_ID);
+    formData.append('eleve_id', eleveId);
+    formData.append('periode',  PERIODE);
+    formData.append('valeur',   valeur);
+    formData.append('csrfmiddlewaretoken', CSRF);
+
+    const resp = await fetch(AUTOSAVE_URL, { method: 'POST', body: formData });
+    const data = await resp.json();
+
+    if (data.success) {
+      setIndicator(eleveId, 'saved');
+      showBar('<i class="bi bi-check-circle me-1"></i>Note sauvegardée automatiquement', 'success');
+      setTimeout(() => setIndicator(eleveId, ''), 3000);
+    } else {
+      setIndicator(eleveId, 'error');
+      showBar(`<i class="bi bi-x-circle me-1"></i>${data.error || 'Erreur de sauvegarde'}`, 'danger');
+      input.classList.add('border-danger');
+    }
+  } catch (e) {
+    setIndicator(eleveId, 'error');
+    showBar('<i class="bi bi-wifi-off me-1"></i>Hors-ligne — note non sauvegardée', 'warning');
+  }
+}
+
+// Attacher les événements sur chaque champ de note
+document.addEventListener('DOMContentLoaded', () => {
+  if (!MC_ID) return;
+
+  document.querySelectorAll('.input-wrapper').forEach(wrapper => {
+    const eleveId = wrapper.dataset.eleveId;
+    const input   = wrapper.querySelector('input[type="number"]');
+    if (!input || !eleveId) return;
+
+    // Supprimer la bordure rouge quand l'utilisateur retape
+    input.addEventListener('input', () => {
+      input.classList.remove('border-danger');
+      setIndicator(eleveId, '');
+    });
+
+    // Auto-save au blur (quand on quitte le champ)
+    input.addEventListener('blur', () => {
+      autosaveNote(input, eleveId);
+    });
+
+    // Auto-save sur Entrée (passe à l'élève suivant)
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        autosaveNote(input, eleveId);
+        // Focus sur le champ suivant
+        const allInputs = Array.from(document.querySelectorAll('.input-wrapper input'));
+        const idx = allInputs.indexOf(input);
+        if (idx < allInputs.length - 1) allInputs[idx + 1].focus();
+      }
+    });
+  });
+});
 </script>
 {% endblock %}
