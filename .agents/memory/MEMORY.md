@@ -1,3 +1,2 @@
-- [Django SGN RDC](django-sgn-setup.md) — App Django dans school_app/ avec workflow "SGN Django" sur port 8000; ne pas utiliser le monorepo Node.js pour cette app.
-- [SGN Templates corrigés](sgn-templates-fix.md) — affectation_list, matiere_list, consulter_notes, grades_tags (get_item) tous corrigés et alignés avec les vues réécrites.
-- [SGN PDF + Rapports](sgn-pdf-rapports.md) — ReportLab 5.0.0 déjà dispo en Nix; PDF bulletin via bulletin/pdf_views.py; rapports enrichis avec stats de classe.
+- [Django SGN setup](django-sgn-setup.md) — app Django dans school_app/, lancée via uv run, port 8000, proxy routé vers "/"
+- [Portail parents](portail-parents.md) — nouvelles apps portail + carte_eleve, flux QR → activation → code → résultats
