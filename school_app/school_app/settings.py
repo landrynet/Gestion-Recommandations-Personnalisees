@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     'grades',
     'reports',
     'school_settings',
+    'portail',
+    'carte_eleve',
 ]
 
 MIDDLEWARE = [

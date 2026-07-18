@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ titre }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #e8edf2; font-family: 'Segoe UI', Arial, sans-serif; padding: 2rem; }
+
+    .page-actions {
+      max-width: 900px; margin: 0 auto 1.5rem;
+      display: flex; gap: .75rem; align-items: center;
+    }
+    .btn-print { background:#2563EB; color:#fff; border:none; padding:.6rem 1.4rem; border-radius:8px; cursor:pointer; font-size:.9rem; font-weight:600; }
+    .btn-back  { background:#fff; color:#374151; border:1px solid #d1d5db; padding:.6rem 1.4rem; border-radius:8px; cursor:pointer; font-size:.9rem; text-decoration:none; font-weight:600; }
+
+    .cards-grid { max-width:900px; margin:0 auto; display:flex; flex-wrap:wrap; gap:1.5rem; justify-content:center; }
+
+    /* ── Carte PVC (format ISO 7810 ID-1 : 85.6 × 54 mm) ── */
+    .carte-wrapper { display:flex; flex-direction:column; align-items:center; gap:.5rem; }
+    .carte-label   { font-size:.75rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; }
+
+    .carte {
+      width: 320px; height: 203px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    /* ────────── RECTO ────────── */
+    .recto {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1d4ed8 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+    .recto-top {
+      background: rgba(255,255,255,.08);
+      padding: .55rem .75rem;
+      display: flex; align-items: center; gap: .5rem;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    .recto-top img.logo-school { height: 30px; object-fit: contain; }
+    .recto-top .school-info .name { font-size: .62rem; font-weight: 700; line-height: 1.2; color:#fff; }
+    .recto-top .school-info .sub  { font-size: .54rem; color: rgba(255,255,255,.6); }
+
+    .recto-body { flex:1; display:flex; padding:.55rem .75rem; gap:.6rem; align-items:flex-start; }
+
+    .photo-box {
+      width: 60px; height: 72px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,.35);
+      flex-shrink: 0;
+      background: rgba(255,255,255,.1);
+      display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.4);
+    }
+    .photo-box img { width:100%; height:100%; object-fit:cover; }
+    .photo-box .no-photo { font-size: 1.8rem; }
+
+    .student-info { flex:1; display:flex; flex-direction:column; gap:.3rem; }
+    .student-info .badge-carte {
+      display: inline-block;
+      background: rgba(255,255,255,.15);
+      color: rgba(255,255,255,.9);
+      font-size: .5rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: .15rem .4rem;
+      border-radius: 3px;
+      border: 1px solid rgba(255,255,255,.2);
+      width: fit-content;
+    }
+    .student-info .nom    { font-size: .78rem; font-weight: 800; line-height: 1.25; }
+    .student-info .detail { font-size: .6rem; color: rgba(255,255,255,.7); }
+    .student-info .classe-badge {
+      background: #2563eb; color:#fff;
+      font-size: .6rem; font-weight: 700;
+      padding: .2rem .5rem; border-radius: 4px; width:fit-content;
+      margin-top: .15rem;
+    }
+
+    .qr-box { display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
+    .qr-box img { width:52px; height:52px; border-radius:4px; background:#fff; padding:2px; }
+    .qr-box .scan-label { font-size:.42rem; color:rgba(255,255,255,.55); margin-top:.15rem; text-align:center; }
+
+    .recto-footer {
+      background: rgba(0,0,0,.25);
+      padding: .3rem .75rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .recto-footer .mat { font-size: .54rem; color: rgba(255,255,255,.7); font-family: monospace; letter-spacing:.04em; }
+    .recto-footer .annee { font-size: .54rem; color: rgba(255,255,255,.6); }
+    .recto-footer .strip {
+      width: 36px; height: 8px; border-radius:2px;
+      background: linear-gradient(90deg, #facc15, #f59e0b);
+    }
+
+    /* ────────── VERSO ────────── */
+    .verso {
+      background: #fff;
+      display: flex; flex-direction: column;
+    }
+    .verso-top {
+      height: 28px;
+      background: linear-gradient(90deg, #0f172a, #1d4ed8);
+    }
+    .verso-strip {
+      height: 28px;
+      background: #1a1a2e;
+      margin: .5rem 0;
+      position: relative;
+    }
+    .verso-strip::after {
+      content: 'Signature';
+      position: absolute; right:.75rem; top:50%; transform:translateY(-50%);
+      font-size:.5rem; color:rgba(255,255,255,.4);
+    }
+    .verso-body {
+      flex: 1;
+      padding: .4rem .75rem;
+      display: flex; flex-direction: column; gap: .3rem;
+    }
+    .verso-school { font-size: .7rem; font-weight: 800; color: #0f172a; }
+    .verso-info   { font-size: .58rem; color: #475569; display:flex; align-items:center; gap:.3rem; }
+    .verso-info i { font-size: .65rem; color:#2563eb; }
+    .verso-devise {
+      margin-top:.25rem;
+      font-size: .6rem; font-style: italic; color: #1d4ed8;
+      border-left: 2px solid #2563eb; padding-left: .4rem;
+    }
+    .verso-msg {
+      font-size: .55rem; color: #64748b; line-height: 1.4;
+    }
+    .verso-footer {
+      background: #0f172a; color: rgba(255,255,255,.7);
+      font-size: .5rem; text-align: center; padding: .3rem;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body { background: white; padding: .5rem; }
+      .page-actions { display: none !important; }
+      .cards-grid { gap: .5rem; }
+      .carte { box-shadow: none; border: 1px solid #ccc; }
+      .carte-wrapper { page-break-inside: avoid; }
+    }
+  </style>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="page-actions">
+  <button class="btn-print" onclick="window.print()">
+    <i class="bi bi-printer me-1"></i>Imprimer
+  </button>
+  <a href="javascript:history.back()" class="btn-back">
+    <i class="bi bi-arrow-left me-1"></i>Retour
+  </a>
+  <span style="color:#64748b;font-size:.85rem">{{ titre }} — {{ eleves_data|length }} carte(s)</span>
+</div>
+
+<div class="cards-grid">
+{% for item in eleves_data %}
+{% with eleve=item.eleve qr=item.qr_b64 %}
+<div class="carte-wrapper">
+
+  <!-- RECTO -->
+  <div class="carte-label">Recto</div>
+  <div class="carte recto">
+
+    <!-- En-tête école -->
+    <div class="recto-top">
+      {% if school.logo %}
+        <img src="{{ school.logo.url }}" alt="Logo" class="logo-school">
+      {% else %}
+        <div style="width:30px;height:30px;background:rgba(255,255,255,.15);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.9rem;">🏫</div>
+      {% endif %}
+      <div class="school-info">
+        <div class="name">{{ school.nom }}</div>
+        <div class="sub">{{ school.ville }} — {{ school.province }}</div>
+      </div>
+    </div>
+
+    <!-- Corps -->
+    <div class="recto-body">
+      <!-- Photo -->
+      <div class="photo-box">
+        {% if eleve.photo %}
+          <img src="{{ eleve.photo.url }}" alt="Photo">
+        {% else %}
+          <span class="no-photo">👤</span>
+        {% endif %}
+      </div>
+
+      <!-- Infos élève -->
+      <div class="student-info">
+        <span class="badge-carte">Carte scolaire</span>
+        <div class="nom">{{ eleve.nom }} {{ eleve.postnom }}</div>
+        {% if eleve.prenom %}<div class="detail">{{ eleve.prenom }}</div>{% endif %}
+        {% if eleve.classe %}
+          <div class="classe-badge">{{ eleve.classe }}</div>
+          <div class="detail" style="margin-top:.1rem">{{ eleve.classe.section }}</div>
+        {% endif %}
+      </div>
+
+      <!-- QR Code -->
+      <div class="qr-box">
+        <img src="data:image/png;base64,{{ qr }}" alt="QR Code">
+        <div class="scan-label">Scanner pour<br>les résultats</div>
+      </div>
+    </div>
+
+    <!-- Pied -->
+    <div class="recto-footer">
+      <span class="mat">{{ eleve.matricule }}</span>
+      <div class="strip"></div>
+      <span class="annee">{% if annee %}{{ annee }}{% endif %}</span>
+    </div>
+  </div>
+
+  <!-- VERSO -->
+  <div class="carte-label" style="margin-top:.75rem">Verso</div>
+  <div class="carte verso">
+    <div class="verso-top"></div>
+    <div class="verso-strip"></div>
+    <div class="verso-body">
+      <div class="verso-school">{{ school.nom }}</div>
+      <div class="verso-info"><i class="bi bi-geo-alt-fill"></i>{{ school.commune }}, {{ school.ville }}, {{ school.province }}</div>
+      {% if school.code %}
+        <div class="verso-info"><i class="bi bi-hash"></i>Code : {{ school.code }}</div>
+      {% endif %}
+      <div class="verso-devise">Le savoir, la discipline et le travail</div>
+      <div class="verso-msg mt-1">
+        En cas de perte, prière de retourner cette carte à l'établissement.
+        Cette carte est valable pour toute la durée de la scolarité de l'élève.
+      </div>
+    </div>
+    <div class="verso-footer">{{ school.nom }} &mdash; Année {{ annee }}</div>
+  </div>
+
+</div>
+{% endwith %}
+{% endfor %}
+</div>
+
+</body>
+</html>

@@ -14,4 +14,6 @@ urlpatterns = [
     path('notes/', include('grades.urls')),
     path('rapports/', include('reports.urls')),
     path('parametres/', include('school_settings.urls')),
+    path('portail/', include('portail.urls')),
+    path('cartes/', include('carte_eleve.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

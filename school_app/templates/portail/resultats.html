@@ -1,0 +1,151 @@
+{% extends 'portail/base_portail.html' %}
+{% block title %}Résultats — {{ eleve.nom_complet }}{% endblock %}
+{% block extra_css %}
+<style>
+.res-card { background:#fff; border-radius:14px; box-shadow:0 2px 12px rgba(0,0,0,.08); margin-bottom:1.5rem; overflow:hidden; }
+.res-card-header { background:var(--p-secondary); color:#fff; padding:.75rem 1.25rem; font-weight:700; font-size:.95rem; display:flex; align-items:center; gap:.5rem; }
+.res-table { width:100%; border-collapse:collapse; font-size:.88rem; }
+.res-table th { background:#f8fafc; font-weight:600; color:#475569; padding:.5rem .75rem; border-bottom:2px solid #e2e8f0; }
+.res-table td { padding:.45rem .75rem; border-bottom:1px solid #f1f5f9; }
+.res-table tr:last-child td { border-bottom:none; }
+.stat-box { background:var(--p-secondary); color:#fff; border-radius:10px; padding:1rem; text-align:center; }
+.stat-box .stat-val { font-size:1.6rem; font-weight:800; }
+.stat-box .stat-lbl { font-size:.75rem; opacity:.8; }
+.annuel-banner { background: linear-gradient(135deg, var(--p-secondary), var(--p-primary)); color:#fff; border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; box-shadow:0 4px 16px rgba(0,0,0,.15); }
+.note-absent { color:#94a3b8; font-style:italic; }
+.btn-deconnexion { background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; font-size:.8rem; padding:.3rem .8rem; border-radius:6px; }
+.btn-deconnexion:hover { background:rgba(255,255,255,.15); color:#fff; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container" style="max-width:700px; padding:1.5rem 1rem;">
+  <!-- En-tête élève -->
+  <div class="res-card">
+    <div class="res-card-header justify-content-between">
+      <span><i class="bi bi-person-circle me-2"></i>{{ eleve.nom_complet }}</span>
+      <a href="{% url 'portail_deconnexion' token=acces.token %}" class="btn btn-deconnexion">
+        <i class="bi bi-box-arrow-right me-1"></i>Déconnexion
+      </a>
+    </div>
+    <div class="p-3">
+      <div class="row g-2 text-center">
+        <div class="col-6 col-sm-3">
+          <div class="bg-light rounded p-2">
+            <div class="small text-muted">Classe</div>
+            <div class="fw-bold">{{ eleve.classe|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-3">
+          <div class="bg-light rounded p-2">
+            <div class="small text-muted">Section</div>
+            <div class="fw-bold">{{ eleve.classe.section|default:"—" }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-3">
+          <div class="bg-light rounded p-2">
+            <div class="small text-muted">Matricule</div>
+            <div class="fw-bold" style="font-size:.85rem">{{ eleve.matricule }}</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm-3">
+          <div class="bg-light rounded p-2">
+            <div class="small text-muted">Année</div>
+            <div class="fw-bold">{{ annee }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Résultats par période -->
+  {% for periode, data in resultats.items %}
+  <div class="res-card">
+    <div class="res-card-header">
+      <i class="bi bi-calendar3 me-1"></i> {{ data.label }}
+    </div>
+    <div class="p-3">
+      <!-- Stats -->
+      <div class="row g-2 mb-3">
+        <div class="col-4">
+          <div class="stat-box">
+            <div class="stat-val">{{ data.total_obtenu|floatformat:1 }}</div>
+            <div class="stat-lbl">/ {{ data.total_max|floatformat:0 }} pts</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="stat-box">
+            <div class="stat-val">{{ data.pourcentage }}%</div>
+            <div class="stat-lbl">Pourcentage</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="stat-box">
+            <div class="stat-val">{{ data.rang }}</div>
+            <div class="stat-lbl">/ {{ nb_eleves }} élèves</div>
+          </div>
+        </div>
+      </div>
+      <!-- Tableau notes -->
+      <div class="table-responsive">
+        <table class="res-table">
+          <thead>
+            <tr>
+              <th>Matière</th>
+              <th class="text-center">Maxima</th>
+              <th class="text-center">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for n in data.notes %}
+            <tr>
+              <td>{{ n.matiere }}</td>
+              <td class="text-center text-muted">{{ n.maxima }}</td>
+              <td class="text-center fw-bold">
+                {% if n.note is not None %}
+                  {{ n.note }}
+                {% else %}
+                  <span class="note-absent">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="alert alert-info">Aucun résultat disponible pour le moment.</div>
+  {% endfor %}
+
+  <!-- Résultat annuel -->
+  {% if resultat_annuel %}
+  <div class="annuel-banner">
+    <div class="text-center mb-3">
+      <i class="bi bi-trophy-fill" style="font-size:2rem"></i>
+      <h3 class="h5 fw-bold mt-1 mb-0">Résultat Annuel</h3>
+    </div>
+    <div class="row g-3 text-center">
+      <div class="col-4">
+        <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:1rem;">
+          <div style="font-size:1.5rem;font-weight:800;">{{ resultat_annuel.total|floatformat:1 }}</div>
+          <div style="font-size:.75rem;opacity:.8;">/ {{ resultat_annuel.max|floatformat:0 }} pts</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:1rem;">
+          <div style="font-size:1.5rem;font-weight:800;">{{ resultat_annuel.pourcentage }}%</div>
+          <div style="font-size:.75rem;opacity:.8;">Moyenne générale</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div style="background:rgba(255,255,255,.15);border-radius:10px;padding:1rem;">
+          <div style="font-size:1.5rem;font-weight:800;">{{ resultat_annuel.rang }}</div>
+          <div style="font-size:.75rem;opacity:.8;">/ {{ nb_eleves }} élèves</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
