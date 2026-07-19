@@ -114,8 +114,8 @@
             {% else %}<strong>#{{ r.rang }}</strong>{% endif %}
           </td>
           <td class="fw-medium">{{ r.eleve.nom_complet }}</td>
-          <td class="text-center fw-bold">{{ r.total }}</td>
-          <td class="text-center text-muted">{{ r.max }}</td>
+          <td class="text-center fw-bold">{{ r.total|floatformat:"-1" }}</td>
+          <td class="text-center text-muted">{{ r.max|floatformat:"-1" }}</td>
           <td class="text-center">
             <span class="badge {% if r.pourcentage >= 80 %}bg-success{% elif r.pourcentage >= 70 %}bg-info text-dark{% elif r.pourcentage >= 60 %}bg-primary{% elif r.pourcentage >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
               {{ r.pourcentage }}%

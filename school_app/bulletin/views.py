@@ -196,13 +196,15 @@ def bulletin_eleve(request, pk, eleve_pk):
     pourcentage = round(float(total_obtenu) / float(total_max_tg) * 100, 2) if total_max_tg else 0
     classement  = _get_classement(modele, eleve, total_obtenu)
     nb_eleves   = eleve.classe.eleves.count() if eleve.classe else 0
+    total_obtenu_fmt = round(float(total_obtenu), 1)
+    total_max_fmt    = round(float(total_max_tg), 1)
 
     return render(request, 'bulletin/bulletin_eleve.html', {
         'modele':       modele,
         'eleve':        eleve,
         'matieres_data': matieres_data,
-        'total_obtenu': total_obtenu,
-        'total_max':    total_max_tg,
+        'total_obtenu': total_obtenu_fmt,
+        'total_max':    total_max_fmt,
         'pourcentage':  pourcentage,
         'classement':   classement,
         'nb_eleves':    nb_eleves,

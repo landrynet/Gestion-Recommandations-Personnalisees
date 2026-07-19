@@ -59,6 +59,7 @@ def rapport_resultats(request):
                 eleve=eleve,
                 matiere_classe__classe=modele.classe
             ).exclude(periode='REPECHAGE').aggregate(total=Sum('valeur'))['total'] or Decimal('0')
+            total = round(float(total), 1)
 
             pct     = round(float(total) / float(max_total) * 100, 2) if max_total else 0
             mention = _mention(pct)
