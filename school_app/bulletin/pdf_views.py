@@ -232,8 +232,8 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
 
     ministere_txt = (
         "REPUBLIQUE DEMOCRATIQUE DU CONGO<br/>"
-        "MINISTERE DE L'ENSEIGNEMENT PRIMAIRE, SECONDAIRE<br/>"
-        "ET PROFESSIONNEL"
+        "MINISTERE DE L'EDUCATION NATIONALE<br/>"
+        "ET NOUVELLE CITOYENNETE"
     )
 
     header_data = [[
@@ -369,10 +369,11 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     # ══════════════════════════════════════════════════════════════════════════
     # 5. TITRE DU BULLETIN
     # ══════════════════════════════════════════════════════════════════════════
-    annee_str = str(modele.annee_scolaire)
+    annee_str   = str(modele.annee_scolaire)
+    section_nom = (modele.classe.section.nom if modele.classe and hasattr(modele.classe, 'section') and modele.classe.section else 'SECONDAIRE').upper()
     titre_txt = (
-        f"BULLETIN DE LA 1<super>ère</super>, 2<super>ème</super> (1) ANNEE SECONDAIRE "
-        f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ANNEE SCOLAIRE {annee_str}"
+        f"BULLETIN DE LA 1<super>ère</super> ET 2<super>ème</super> ANNEE {section_nom}"
+        f"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ANNEE SCOLAIRE {annee_str}"
     )
     titre_tbl = Table([[Paragraph(titre_txt, titre)]], colWidths=[avail_w])
     titre_tbl.setStyle(TableStyle([

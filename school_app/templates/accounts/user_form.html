@@ -1,27 +1,45 @@
 {% extends 'base.html' %}
 {% block title %}{{ titre }}{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'user_list' %}">Utilisateurs</a></li>
+<li class="breadcrumb-item active">{{ titre }}</li>
+{% endblock %}
 {% block content %}
 <div class="page-header">
   <h1 class="page-title">{{ titre }}</h1>
   <a href="{% url 'user_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Retour</a>
 </div>
-<div class="card" style="max-width:500px">
+
+<div class="card" style="max-width:540px">
   <div class="card-body">
-    <form method="post">{% csrf_token %}
+    {% if not obj %}
+    <div class="alert alert-info small mb-4">
+      <i class="bi bi-info-circle me-1"></i>
+      Un mot de passe temporaire fort sera généré automatiquement.
+      L'utilisateur devra le changer à sa première connexion.
+    </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
       {% for field in form %}
       <div class="mb-3">
-        <label class="form-label">{{ field.label }}</label>
+        <label class="form-label fw-medium">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
         {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for e in field.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ e }}</div>{% endfor %}
       </div>
       {% endfor %}
-      {% if form.errors %}
-      <div class="alert alert-danger small py-2">
-        {% for field in form %}{% for e in field.errors %}<div>{{ field.label }}: {{ e }}</div>{% endfor %}{% endfor %}
-        {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+      {% for e in form.non_field_errors %}
+      <div class="alert alert-danger small py-2">{{ e }}</div>
+      {% endfor %}
+
+      <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-save me-1"></i>{% if obj %}Enregistrer{% else %}Créer le compte{% endif %}
+        </button>
+        <a href="{% url 'user_list' %}" class="btn btn-outline-secondary">Annuler</a>
       </div>
-      {% endif %}
-      <button type="submit" class="btn btn-primary me-2"><i class="bi bi-save me-1"></i>Enregistrer</button>
-      <a href="{% url 'user_list' %}" class="btn btn-outline-secondary">Annuler</a>
     </form>
   </div>
 </div>

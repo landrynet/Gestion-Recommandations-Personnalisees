@@ -7,24 +7,57 @@
 </div>
 <div class="card">
   <div class="card-body p-0">
-    <table class="table table-hover">
-      <thead><tr><th>Nom d'utilisateur</th><th>Nom complet</th><th>Email</th><th>Rôle</th><th>Statut</th><th class="text-end">Actions</th></tr></thead>
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Nom complet</th>
+          <th>E-mail</th>
+          <th>Téléphone</th>
+          <th>Rôle</th>
+          <th>Statut</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
       <tbody>
         {% for u in users %}
         <tr>
-          <td><code>{{ u.username }}</code></td>
-          <td class="fw-medium">{{ u.get_full_name|default:"—" }}</td>
+          <td class="fw-medium">
+            {{ u.get_full_name|default:"—" }}
+            {% if u.must_change_password %}
+            <span class="badge bg-warning text-dark ms-1" title="Doit changer son mot de passe">
+              <i class="bi bi-key-fill"></i> 1ère connexion
+            </span>
+            {% endif %}
+          </td>
           <td class="text-muted">{{ u.email|default:"—" }}</td>
+          <td class="text-muted">{{ u.telephone|default:"—" }}</td>
           <td>
             <span class="badge {% if u.role == 'prefet' %}bg-primary{% else %}bg-success{% endif %}">
               {{ u.get_role_display }}
             </span>
           </td>
-          <td>{% if u.is_active %}<span class="badge bg-success">Actif</span>{% else %}<span class="badge bg-danger">Inactif</span>{% endif %}</td>
+          <td>
+            {% if u.is_active %}
+              <span class="badge bg-success">Actif</span>
+            {% else %}
+              <span class="badge bg-danger">Inactif</span>
+            {% endif %}
+          </td>
           <td class="text-end">
-            <a href="{% url 'user_update' u.pk %}" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'user_update' u.pk %}" class="btn btn-sm btn-outline-primary me-1" title="Modifier">
+              <i class="bi bi-pencil"></i>
+            </a>
+            <button type="button"
+                    class="btn btn-sm btn-outline-warning me-1"
+                    data-bs-toggle="modal"
+                    data-bs-target="#resetModal{{ u.pk }}"
+                    title="Réinitialiser le mot de passe">
+              <i class="bi bi-arrow-repeat"></i>
+            </button>
             {% if u != request.user %}
-            <a href="{% url 'user_delete' u.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+            <a href="{% url 'user_delete' u.pk %}" class="btn btn-sm btn-outline-danger" title="Supprimer">
+              <i class="bi bi-trash"></i>
+            </a>
             {% endif %}
           </td>
         </tr>
@@ -33,4 +66,31 @@
     </table>
   </div>
 </div>
+
+<!-- Modals de confirmation de réinitialisation -->
+{% for u in users %}
+<div class="modal fade" id="resetModal{{ u.pk }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2 text-warning"></i>Réinitialiser le mot de passe</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Réinitialiser le mot de passe de <strong>{{ u.get_full_name|default:u.email }}</strong> ?</p>
+        <p class="text-muted small">Un nouveau mot de passe temporaire sera généré. L'utilisateur devra le changer à sa prochaine connexion.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <form method="post" action="{% url 'reset_user_password' u.pk %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-arrow-repeat me-1"></i>Réinitialiser
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
 {% endblock %}

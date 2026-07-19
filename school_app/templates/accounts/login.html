@@ -2,11 +2,17 @@
 {% block auth_content %}
 <div class="login-page">
   <div class="login-card">
+    {% if school_info.logo %}
+    <div class="login-logo p-0 mb-3">
+      <img src="{{ school_info.logo.url }}" alt="{{ school_info.nom }}" style="height:64px;object-fit:contain;">
+    </div>
+    {% else %}
     <div class="login-logo">
       <i class="bi bi-mortarboard-fill"></i>
     </div>
-    <h4 class="text-center fw-bold mb-1" style="color:#0F172A">Système de Gestion des Notes</h4>
-    <p class="text-center text-muted small mb-4">République Démocratique du Congo</p>
+    {% endif %}
+    <h4 class="text-center fw-bold mb-1" style="color:#0F172A">{{ school_info.pwa_nom|default:"Système de Gestion Scolaire" }}</h4>
+    <p class="text-center text-muted small mb-4">{{ school_info.nom }}</p>
 
     {% if form.errors %}
     <div class="alert alert-danger py-2 small">
@@ -17,7 +23,7 @@
     <form method="post">
       {% csrf_token %}
       <div class="mb-3">
-        <label class="form-label">Nom d'utilisateur</label>
+        <label class="form-label">Adresse e-mail</label>
         {{ form.username }}
       </div>
       <div class="mb-4">

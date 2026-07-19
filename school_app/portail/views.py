@@ -200,31 +200,55 @@ def portail_resultats(request, token):
     periodes_a_afficher = [p for p in PERIODES_NORMALES if p in periodes_publiees]
     resultats = _calc_resultats_par_periode(modele, eleve, periodes_a_afficher)
 
-    # ── Résultat annuel ──────────────────────────────────────────────────────────
-    # Utilise EXACTEMENT la même formule que le bulletin PDF officiel (_calc_eleve)
-    # afin que portail et bulletin affichent toujours les mêmes chiffres.
-    # Le résultat annuel est indépendant des périodes individuellement publiées :
-    # si ANNUEL est coché, on calcule sur 1P+2P+EXAM1+3P+4P+EXAM2, point final.
+    # ── Résumés de semestres (même formule que le bulletin officiel) ────────────
+    # Publiés uniquement si TOUTES les périodes du semestre sont publiées.
+    resume_s1 = None
+    resume_s2 = None
     resultat_annuel = None
-    if 'ANNUEL' in periodes_publiees:
+
+    s1_complet = periodes_publiees >= {'1P', '2P', 'EXAM1'}
+    s2_complet = periodes_publiees >= {'3P', '4P', 'EXAM2'}
+    annuel_publie = 'ANNUEL' in periodes_publiees
+
+    if s1_complet or s2_complet or annuel_publie:
         try:
-            from bulletin.pdf_views import _calc_eleve as _pdf_calc, _get_classement as _pdf_rang
-            _, total_annuel, max_annuel, pct_annuel, _, _ = _pdf_calc(modele, eleve)
-            rang_annuel = _pdf_rang(modele, total_annuel)
-            resultat_annuel = {
-                'total': total_annuel, 'max': max_annuel,
-                'pourcentage': pct_annuel, 'rang': rang_annuel,
-            }
+            from bulletin.pdf_views import (
+                _calc_eleve as _pdf_calc,
+                _get_classement as _pdf_rang,
+                _get_classement_semestres as _pdf_sem_rang,
+            )
+            _, total_annuel, max_annuel, pct_annuel, total_s1, total_s2 = _pdf_calc(modele, eleve)
+            max_sem = max_annuel / 2 if max_annuel else Decimal('0')
+            nb_eleves = eleve.classe.eleves.count()
+
+            if s1_complet or s2_complet:
+                rang_s1, rang_s2 = _pdf_sem_rang(modele, total_s1, total_s2)
+                if s1_complet and max_sem:
+                    pct_s1 = round(float(total_s1) / float(max_sem) * 100, 1)
+                    resume_s1 = {'total': total_s1, 'max': max_sem, 'pourcentage': pct_s1, 'rang': rang_s1}
+                if s2_complet and max_sem:
+                    pct_s2 = round(float(total_s2) / float(max_sem) * 100, 1)
+                    resume_s2 = {'total': total_s2, 'max': max_sem, 'pourcentage': pct_s2, 'rang': rang_s2}
+
+            if annuel_publie:
+                rang_annuel = _pdf_rang(modele, total_annuel)
+                resultat_annuel = {
+                    'total': total_annuel, 'max': max_annuel,
+                    'pourcentage': pct_annuel, 'rang': rang_annuel,
+                }
         except Exception:
             pass
 
+    nb_eleves = eleve.classe.eleves.count()
     return render(request, 'portail/resultats.html', {
         'config': config, 'school': school, 'eleve': eleve,
         'acces': acces,
-        'modele': modele,                        # ← pour URL téléchargement bulletin
+        'modele': modele,
         'resultats': resultats,
+        'resume_s1': resume_s1,
+        'resume_s2': resume_s2,
         'resultat_annuel': resultat_annuel,
-        'nb_eleves': eleve.classe.eleves.count(),
+        'nb_eleves': nb_eleves,
         'annee': annee,
     })
 

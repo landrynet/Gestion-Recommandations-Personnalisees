@@ -2,7 +2,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
-from school_settings.views import manifest_view, manifest_portail_view
+from school_settings.views import manifest_view, manifest_portail_view, favicon_view
 
 urlpatterns = [
     # PWA — sw.js doit être servi à la racine pour contrôler tout le site
@@ -13,6 +13,8 @@ urlpatterns = [
     # Manifests PWA — servis avec contexte SchoolInfo
     path('manifest.json', manifest_view, name='manifest'),
     path('portail/manifest.json', manifest_portail_view, name='manifest_portail'),
+    path('favicon.ico', favicon_view, name='favicon'),
+    path('favicon.png', favicon_view, name='favicon_png'),
 
     path('', include('dashboard.urls')),
     path('login/', include('accounts.urls')),

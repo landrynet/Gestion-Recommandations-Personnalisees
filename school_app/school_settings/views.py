@@ -20,15 +20,36 @@ def settings_view(request):
     return render(request, 'school_settings/settings.html', {'form': form, 'info': info})
 
 
+def _manifest_ctx(info):
+    """Contexte commun aux deux manifests : vérifie si les icônes générées existent."""
+    return {
+        'info': info,
+        'icons_generated': info.pwa_icons_exist(),
+        'icons_base_url':  info.pwa_icons_base_url(),
+    }
+
+
 def manifest_view(request):
     """PWA manifest pour le back-office (start_url = /)."""
     info = SchoolInfo.get_info()
-    content = render_to_string('manifest.json', {'info': info}, request=request)
+    content = render_to_string('manifest.json', _manifest_ctx(info), request=request)
     return HttpResponse(content, content_type='application/manifest+json')
 
 
 def manifest_portail_view(request):
     """PWA manifest pour le portail parent (start_url = /portail/)."""
     info = SchoolInfo.get_info()
-    content = render_to_string('manifest_portail.json', {'info': info}, request=request)
+    content = render_to_string('manifest_portail.json', _manifest_ctx(info), request=request)
     return HttpResponse(content, content_type='application/manifest+json')
+
+
+def favicon_view(request):
+    """Sert le favicon depuis le logo de l'école ou l'icône générée."""
+    from django.http import HttpResponseRedirect
+    from django.templatetags.static import static
+    info = SchoolInfo.get_info()
+    if info.pwa_icons_exist():
+        return HttpResponseRedirect(info.pwa_icons_base_url() + '/favicon.png')
+    if info.logo:
+        return HttpResponseRedirect(info.logo.url)
+    return HttpResponseRedirect(static('icons/icon-72.png'))
