@@ -1,12 +1,12 @@
 {% load static %}{% spaceless %}{
-  "name": "{{ info.pwa_nom|default:'Système de Gestion Scolaire' }}",
-  "short_name": "{{ info.pwa_nom_court|default:'SGS' }}",
-  "description": "{{ info.pwa_description|default:'Plateforme de gestion scolaire.' }}",
-  "start_url": "/",
-  "scope": "/",
+  "name": "{{ info.portail_pwa_nom|default:'Portail Parent' }}",
+  "short_name": "{{ info.portail_pwa_nom_court|default:'Parent' }}",
+  "description": "{{ info.portail_pwa_description|default:'Consultation des résultats scolaires, bulletins et informations des élèves.' }}",
+  "start_url": "/portail/",
+  "scope": "/portail/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "theme_color": "{{ info.theme_color|default:'#1E293B' }}",
+  "theme_color": "{{ info.theme_color|default:'#2563EB' }}",
   "background_color": "{{ info.background_color|default:'#0f172a' }}",
   "lang": "fr",
   "icons": [
@@ -22,13 +22,5 @@
     { "src": "{% static 'icons/icon-384.png' %}", "sizes": "384x384", "type": "image/png", "purpose": "any maskable" },
     { "src": "{% static 'icons/icon-512.png' %}", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ],
-  "shortcuts": [
-    {
-      "name": "{{ info.portail_pwa_nom|default:'Portail Parent' }}",
-      "short_name": "{{ info.portail_pwa_nom_court|default:'Parent' }}",
-      "url": "/portail/",
-      "icons": [{ "src": "{% static 'icons/icon-96.png' %}", "sizes": "96x96" }]
-    }
-  ],
-  "categories": ["education", "productivity"]
+  "categories": ["education"]
 }{% endspaceless %}

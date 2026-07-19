@@ -2,6 +2,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+from school_settings.views import manifest_view, manifest_portail_view
 
 urlpatterns = [
     # PWA — sw.js doit être servi à la racine pour contrôler tout le site
@@ -9,10 +10,10 @@ urlpatterns = [
         template_name='sw.js',
         content_type='application/javascript',
     ), name='sw'),
-    path('manifest.json', TemplateView.as_view(
-        template_name='manifest.json',
-        content_type='application/manifest+json',
-    ), name='manifest'),
+    # Manifests PWA — servis avec contexte SchoolInfo
+    path('manifest.json', manifest_view, name='manifest'),
+    path('portail/manifest.json', manifest_portail_view, name='manifest_portail'),
+
     path('', include('dashboard.urls')),
     path('login/', include('accounts.urls')),
     path('dashboard/', include('dashboard.urls')),

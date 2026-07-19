@@ -1,4 +1,6 @@
 from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.template.loader import render_to_string
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import SchoolInfo
@@ -16,3 +18,17 @@ def settings_view(request):
         messages.success(request, "Paramètres enregistrés.")
         return redirect('settings_view')
     return render(request, 'school_settings/settings.html', {'form': form, 'info': info})
+
+
+def manifest_view(request):
+    """PWA manifest pour le back-office (start_url = /)."""
+    info = SchoolInfo.get_info()
+    content = render_to_string('manifest.json', {'info': info}, request=request)
+    return HttpResponse(content, content_type='application/manifest+json')
+
+
+def manifest_portail_view(request):
+    """PWA manifest pour le portail parent (start_url = /portail/)."""
+    info = SchoolInfo.get_info()
+    content = render_to_string('manifest_portail.json', {'info': info}, request=request)
+    return HttpResponse(content, content_type='application/manifest+json')
