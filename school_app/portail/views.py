@@ -322,7 +322,7 @@ def acces_list(request):
     """Liste tous les élèves avec leur statut d'accès portail."""
     annee = AnneeScolaire.objects.filter(active=True).first()
     classe_id = request.GET.get('classe', '')
-    eleves = Student.objects.select_related('classe', 'classe__section').prefetch_related('portail_acces')
+    eleves = Student.objects.select_related('classe', 'classe__section', 'portail_acces')
     if classe_id:
         eleves = eleves.filter(classe_id=classe_id)
     elif annee:

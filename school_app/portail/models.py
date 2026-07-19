@@ -1,4 +1,5 @@
 import secrets
+from datetime import timedelta
 from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
 from django.utils import timezone
@@ -75,7 +76,7 @@ class PortailAcces(models.Model):
     def incrementer_tentatives(self):
         self.tentatives_echec += 1
         if self.tentatives_echec >= 5:
-            self.bloque_jusqu = timezone.now() + timezone.timedelta(minutes=15)
+            self.bloque_jusqu = timezone.now() + timedelta(minutes=15)
         self.save()
 
     def reset_acces(self):
