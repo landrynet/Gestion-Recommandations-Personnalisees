@@ -200,8 +200,7 @@ def portail_resultats(request, token):
     periodes_a_afficher = [p for p in PERIODES_NORMALES if p in periodes_publiees]
     resultats = _calc_resultats_par_periode(modele, eleve, periodes_a_afficher)
 
-    # ── Résumés de semestres (même formule que le bulletin officiel) ────────────
-    # Publiés uniquement si TOUTES les périodes du semestre sont publiées.
+    # ── Résumés de semestres ─────────────────────────────────────────────────
     resume_s1 = None
     resume_s2 = None
     resultat_annuel = None
@@ -230,7 +229,6 @@ def portail_resultats(request, token):
                     pct_s2 = round(float(total_s2) / float(max_sem) * 100, 1)
                     resume_s2 = {'total': total_s2, 'max': max_sem, 'pourcentage': pct_s2, 'rang': rang_s2}
 
-            # Le résultat annuel s'affiche dès que les deux semestres sont complets
             if s1_complet and s2_complet:
                 rang_annuel = _pdf_rang(modele, total_annuel)
                 resultat_annuel = {
@@ -241,10 +239,158 @@ def portail_resultats(request, token):
             pass
 
     nb_eleves = eleve.classe.eleves.count()
+
+    # Vérifier s'il y a un historique (années passées avec notes)
+    has_archives = Note.objects.filter(
+        eleve=eleve
+    ).exclude(
+        matiere_classe__classe__annee_scolaire=annee
+    ).exists()
+
     return render(request, 'portail/resultats.html', {
         'config': config, 'school': school, 'eleve': eleve,
         'acces': acces,
         'modele': modele,
+        'resultats': resultats,
+        'resume_s1': resume_s1,
+        'resume_s2': resume_s2,
+        'resultat_annuel': resultat_annuel,
+        'nb_eleves': nb_eleves,
+        'annee': annee,
+        'has_archives': has_archives,
+    })
+
+
+def portail_archives(request, token):
+    """Liste les années scolaires archivées (clôturées) pour un élève."""
+    acces = get_object_or_404(PortailAcces, token=token)
+    if request.session.get(SESSION_KEY) != str(acces.token):
+        return redirect('portail_scan', token=token)
+
+    config = PortailConfig.get_config()
+    school = SchoolInfo.get_info()
+    eleve = acces.eleve
+
+    # Trouver toutes les années où l'élève a des notes publiées, excluant l'année courante
+    annee_courante = eleve.classe.annee_scolaire if eleve.classe else None
+
+    # Récupérer les classes historiques via les notes
+    classes_avec_notes = Classe.objects.filter(
+        matieres__notes__eleve=eleve
+    ).select_related('annee_scolaire', 'section', 'niveau').distinct().order_by('-annee_scolaire__annee')
+
+    archives = []
+    for classe in classes_avec_notes:
+        if annee_courante and classe.annee_scolaire == annee_courante:
+            continue
+        # Vérifier qu'il y a des résultats publiés
+        periodes_pub = PublicationResultats.objects.filter(
+            classe=classe, annee_scolaire=classe.annee_scolaire, publie=True
+        ).values_list('periode', flat=True)
+        if periodes_pub.exists():
+            archives.append({
+                'annee': classe.annee_scolaire,
+                'classe': classe,
+                'periodes_publiees': list(periodes_pub),
+                'cloturee': classe.annee_scolaire.cloturee,
+            })
+
+    return render(request, 'portail/archives.html', {
+        'config': config, 'school': school, 'eleve': eleve,
+        'acces': acces,
+        'archives': archives,
+        'annee_courante': annee_courante,
+    })
+
+
+def portail_archives_annee(request, token, annee_id):
+    """Affiche les résultats d'une année archivée pour un élève."""
+    acces = get_object_or_404(PortailAcces, token=token)
+    if request.session.get(SESSION_KEY) != str(acces.token):
+        return redirect('portail_scan', token=token)
+
+    config = PortailConfig.get_config()
+    school = SchoolInfo.get_info()
+    eleve = acces.eleve
+    annee = get_object_or_404(AnneeScolaire, pk=annee_id)
+
+    # Trouver la classe de l'élève pour cette année (via ses notes)
+    try:
+        classe = Classe.objects.filter(
+            matieres__notes__eleve=eleve,
+            annee_scolaire=annee,
+        ).select_related('section', 'niveau').distinct().first()
+    except Exception:
+        classe = None
+
+    if not classe:
+        return render(request, 'portail/pas_publie.html', {
+            'config': config, 'school': school, 'eleve': eleve,
+            'message': f"Aucune donnée trouvée pour l'année {annee}."
+        })
+
+    periodes_publiees = set(
+        PublicationResultats.objects.filter(
+            classe=classe, annee_scolaire=annee, publie=True
+        ).values_list('periode', flat=True)
+    )
+
+    if not periodes_publiees:
+        return render(request, 'portail/pas_publie.html', {
+            'config': config, 'school': school, 'eleve': eleve,
+            'message': f"Aucun résultat publié pour l'année {annee}."
+        })
+
+    try:
+        modele = ModeleBulletin.objects.get(classe=classe, annee_scolaire=annee)
+    except ModeleBulletin.DoesNotExist:
+        return render(request, 'portail/pas_publie.html', {
+            'config': config, 'school': school, 'eleve': eleve,
+            'message': f"Le bulletin de l'année {annee} n'est pas disponible."
+        })
+
+    periodes_a_afficher = [p for p in PERIODES_NORMALES if p in periodes_publiees]
+    resultats = _calc_resultats_par_periode(modele, eleve, periodes_a_afficher)
+
+    resume_s1 = None
+    resume_s2 = None
+    resultat_annuel = None
+    s1_complet = periodes_publiees >= {'1P', '2P', 'EXAM1'}
+    s2_complet = periodes_publiees >= {'3P', '4P', 'EXAM2'}
+
+    if s1_complet or s2_complet:
+        try:
+            from bulletin.pdf_views import (
+                _calc_eleve as _pdf_calc,
+                _get_classement as _pdf_rang,
+                _get_classement_semestres as _pdf_sem_rang,
+            )
+            _, total_annuel, max_annuel, pct_annuel, total_s1, total_s2 = _pdf_calc(modele, eleve)
+            max_sem = max_annuel / 2 if max_annuel else Decimal('0')
+            if s1_complet or s2_complet:
+                rang_s1, rang_s2 = _pdf_sem_rang(modele, total_s1, total_s2)
+                if s1_complet and max_sem:
+                    pct_s1 = round(float(total_s1) / float(max_sem) * 100, 1)
+                    resume_s1 = {'total': total_s1, 'max': max_sem, 'pourcentage': pct_s1, 'rang': rang_s1}
+                if s2_complet and max_sem:
+                    pct_s2 = round(float(total_s2) / float(max_sem) * 100, 1)
+                    resume_s2 = {'total': total_s2, 'max': max_sem, 'pourcentage': pct_s2, 'rang': rang_s2}
+            if s1_complet and s2_complet:
+                rang_annuel = _pdf_rang(modele, total_annuel)
+                resultat_annuel = {
+                    'total': total_annuel, 'max': max_annuel,
+                    'pourcentage': pct_annuel, 'rang': rang_annuel,
+                }
+        except Exception:
+            pass
+
+    nb_eleves = classe.eleves.count()
+
+    return render(request, 'portail/archives_annee.html', {
+        'config': config, 'school': school, 'eleve': eleve,
+        'acces': acces,
+        'modele': modele,
+        'classe': classe,
         'resultats': resultats,
         'resume_s1': resume_s1,
         'resume_s2': resume_s2,
@@ -272,7 +418,6 @@ def portail_bulletin_pdf(request, token):
         from django.http import HttpResponseBadRequest
         return HttpResponseBadRequest("Bulletin non configuré pour cette classe.")
 
-    # Vérifier que les deux semestres complets sont publiés
     periodes_pub = set(
         PublicationResultats.objects.filter(
             classe=eleve.classe, annee_scolaire=annee, publie=True
@@ -322,7 +467,7 @@ def qr_code_image(request, pk):
 def publication_list(request):
     annee = AnneeScolaire.objects.filter(active=True).first()
     classes = (
-        Classe.objects.filter(annee_scolaire=annee).select_related('section')
+        Classe.objects.filter(annee_scolaire=annee).select_related('section', 'niveau')
         if annee else []
     )
     PERIODES = PublicationResultats.PERIODE_CHOICES

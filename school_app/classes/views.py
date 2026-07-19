@@ -3,9 +3,130 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse
 from django.db import transaction
-from .models import AnneeScolaire, Section, Classe
-from .forms import AnneeScolaireForm, SectionForm, ClasseForm
+from django.db.models import Count
+
+from .models import AnneeScolaire, Section, Classe, Niveau, DecisionPromotion, JournalOperation
+from .forms import AnneeScolaireForm, SectionForm, ClasseForm, NiveauForm, DecisionPromotionForm
 from accounts.views import prefet_required
+
+
+# ─── Utilitaires ──────────────────────────────────────────────────────────────
+
+def _suggerer_prochaine_annee(annee_str):
+    """À partir de '2024-2025' suggère '2025-2026'."""
+    try:
+        debut, fin = annee_str.split('-')
+        return f"{int(debut)+1}-{int(fin)+1}"
+    except Exception:
+        return ""
+
+
+def _verifier_cloture(annee):
+    """
+    Vérifie les conditions nécessaires à la clôture d'une année scolaire.
+    Retourne un dict {ok: bool, checks: [...]} avec le détail de chaque vérification.
+    """
+    from portail.models import PublicationResultats
+    from bulletin.models import ModeleBulletin
+    from grades.models import Note
+
+    classes = Classe.objects.filter(annee_scolaire=annee).prefetch_related('eleves', 'matieres')
+    checks = []
+    tout_ok = True
+
+    # 1. Vérifier que toutes les classes ont des matières affectées
+    classes_sans_matieres = [c for c in classes if c.matieres.count() == 0]
+    ok1 = len(classes_sans_matieres) == 0
+    checks.append({
+        'titre': "Matières affectées à toutes les classes",
+        'ok': ok1,
+        'detail': f"{len(classes_sans_matieres)} classe(s) sans matière" if not ok1 else f"{classes.count()} classe(s) configurée(s)",
+    })
+    if not ok1:
+        tout_ok = False
+
+    # 2. Vérifier que les résultats annuels sont publiés pour toutes les classes
+    classes_avec_eleves = [c for c in classes if c.eleves.count() > 0]
+    pubs_annuelles = set(
+        PublicationResultats.objects.filter(
+            annee_scolaire=annee, periode='ANNUEL', publie=True
+        ).values_list('classe_id', flat=True)
+    )
+    classes_non_publiees = [c for c in classes_avec_eleves if c.pk not in pubs_annuelles]
+    ok2 = len(classes_non_publiees) == 0
+    checks.append({
+        'titre': "Résultats annuels publiés pour toutes les classes",
+        'ok': ok2,
+        'detail': (
+            f"{len(classes_non_publiees)} classe(s) sans publication annuelle"
+            if not ok2 else
+            f"{len(classes_avec_eleves)} classe(s) publiée(s)"
+        ),
+    })
+    if not ok2:
+        tout_ok = False
+
+    # 3. Vérifier que les bulletins existent pour toutes les classes
+    bulletins_classes = set(
+        ModeleBulletin.objects.filter(
+            annee_scolaire=annee
+        ).values_list('classe_id', flat=True)
+    )
+    classes_sans_bulletin = [c for c in classes_avec_eleves if c.pk not in bulletins_classes]
+    ok3 = len(classes_sans_bulletin) == 0
+    checks.append({
+        'titre': "Modèles de bulletins créés pour toutes les classes",
+        'ok': ok3,
+        'detail': (
+            f"{len(classes_sans_bulletin)} classe(s) sans bulletin"
+            if not ok3 else
+            f"{len(bulletins_classes)} bulletin(s) créé(s)"
+        ),
+    })
+    if not ok3:
+        tout_ok = False
+
+    # 4. Vérifier que toutes les périodes ont des notes pour au moins une classe
+    periodes_presentes = set(
+        Note.objects.filter(
+            matiere_classe__classe__annee_scolaire=annee
+        ).values_list('periode', flat=True).distinct()
+    )
+    periodes_requises = {'1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2'}
+    periodes_manquantes = periodes_requises - periodes_presentes
+    ok4 = len(periodes_manquantes) == 0
+    checks.append({
+        'titre': "Toutes les périodes ont des notes saisies",
+        'ok': ok4,
+        'detail': (
+            f"Périodes sans notes : {', '.join(sorted(periodes_manquantes))}"
+            if not ok4 else
+            "Les 6 périodes + examens ont des notes"
+        ),
+    })
+    if not ok4:
+        tout_ok = False
+
+    # 5. Vérifier les décisions de promotion
+    total_eleves = sum(c.eleves.count() for c in classes)
+    decisions_validees = DecisionPromotion.objects.filter(
+        annee_scolaire=annee, validee=True
+    ).count()
+    ok5 = decisions_validees >= total_eleves
+    checks.append({
+        'titre': "Décisions de promotion validées pour tous les élèves",
+        'ok': ok5,
+        'detail': (
+            f"{decisions_validees}/{total_eleves} élève(s) avec décision validée"
+            if not ok5 else
+            f"{decisions_validees} décision(s) validée(s)"
+        ),
+        'lien': reverse('promotion_eleves', args=[annee.pk]) if not ok5 else None,
+    })
+    if not ok5:
+        tout_ok = False
+
+    return {'ok': tout_ok, 'checks': checks, 'nb_classes': classes.count(), 'nb_eleves': total_eleves}
 
 
 # ─── Année Scolaire ───────────────────────────────────────────────────────────
@@ -13,7 +134,7 @@ from accounts.views import prefet_required
 @login_required
 @prefet_required
 def annee_list(request):
-    annees = AnneeScolaire.objects.all()
+    annees = AnneeScolaire.objects.annotate(nb_classes=Count('classes')).all()
     return render(request, 'classes/annee_list.html', {'annees': annees})
 
 
@@ -22,8 +143,14 @@ def annee_list(request):
 def annee_create(request):
     form = AnneeScolaireForm(request.POST or None)
     if form.is_valid():
-        form.save()
-        messages.success(request, "Année scolaire créée.")
+        annee = form.save()
+        JournalOperation.objects.create(
+            type_operation='CREATION_ANNEE',
+            annee_scolaire=annee,
+            utilisateur=request.user,
+            details={'annee': annee.annee},
+        )
+        messages.success(request, f"Année scolaire {annee} créée.")
         return redirect('annee_list')
     return render(request, 'classes/annee_form.html', {'form': form, 'titre': "Ajouter une année scolaire"})
 
@@ -32,6 +159,9 @@ def annee_create(request):
 @prefet_required
 def annee_update(request, pk):
     annee = get_object_or_404(AnneeScolaire, pk=pk)
+    if annee.cloturee:
+        messages.error(request, "Impossible de modifier une année clôturée.")
+        return redirect('annee_list')
     form = AnneeScolaireForm(request.POST or None, instance=annee)
     if form.is_valid():
         form.save()
@@ -44,6 +174,9 @@ def annee_update(request, pk):
 @prefet_required
 def annee_delete(request, pk):
     annee = get_object_or_404(AnneeScolaire, pk=pk)
+    if annee.active or annee.cloturee:
+        messages.error(request, "Impossible de supprimer l'année active ou une année clôturée.")
+        return redirect('annee_list')
     if request.method == 'POST':
         annee.delete()
         messages.success(request, "Année scolaire supprimée.")
@@ -56,11 +189,198 @@ def annee_delete(request, pk):
 def annee_activer(request, pk):
     """Rendre une année active (désactive toutes les autres)."""
     annee = get_object_or_404(AnneeScolaire, pk=pk)
+    if annee.cloturee:
+        messages.error(request, "Impossible d'activer une année clôturée.")
+        return redirect('annee_list')
     if request.method == 'POST':
         annee.active = True
-        annee.save()  # Le modèle désactive les autres automatiquement
+        annee.save()
+        JournalOperation.objects.create(
+            type_operation='ACTIVATION_ANNEE',
+            annee_scolaire=annee,
+            utilisateur=request.user,
+            details={'annee': annee.annee},
+        )
         messages.success(request, f"Année {annee} activée avec succès.")
     return redirect('annee_list')
+
+
+@login_required
+@prefet_required
+def cloture_annee(request, pk):
+    """Assistant de clôture d'une année scolaire."""
+    annee = get_object_or_404(AnneeScolaire, pk=pk)
+
+    if annee.cloturee:
+        messages.info(request, f"L'année {annee} est déjà clôturée.")
+        return redirect('annee_list')
+
+    verification = _verifier_cloture(annee)
+    force_cloture = request.GET.get('force') == '1'
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        if action == 'cloturer':
+            if not verification['ok'] and not force_cloture:
+                messages.error(request, "Des anomalies ont été détectées. Corrigez-les ou utilisez la clôture forcée.")
+            else:
+                with transaction.atomic():
+                    annee.cloturer(user=request.user)
+                    messages.success(
+                        request,
+                        f"✅ Année {annee} clôturée avec succès. Elle est maintenant en lecture seule."
+                    )
+                return redirect('annee_list')
+
+    return render(request, 'classes/cloture_annee.html', {
+        'annee': annee,
+        'verification': verification,
+        'force_cloture': force_cloture,
+    })
+
+
+@login_required
+@prefet_required
+def promotion_eleves(request, pk):
+    """Assistant de promotion des élèves pour une année scolaire."""
+    annee = get_object_or_404(AnneeScolaire, pk=pk)
+    annee_active = AnneeScolaire.objects.filter(active=True).exclude(pk=pk).first()
+
+    # Récupérer toutes les classes de l'année avec leurs élèves
+    classes = Classe.objects.filter(
+        annee_scolaire=annee
+    ).select_related('section', 'niveau').prefetch_related('eleves').order_by('niveau__ordre', 'nom')
+
+    # Classes cibles (pour l'année active ou toute autre année non-clôturée)
+    annees_cibles = AnneeScolaire.objects.filter(cloturee=False).exclude(pk=pk)
+    classes_cibles = []
+    if annees_cibles.exists():
+        classes_cibles = list(
+            Classe.objects.filter(
+                annee_scolaire__in=annees_cibles
+            ).select_related('section', 'niveau', 'annee_scolaire').order_by(
+                'annee_scolaire__annee', 'niveau__ordre', 'nom'
+            )
+        )
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        if action == 'sauvegarder':
+            nb_sauvegardees = 0
+            nb_validees = 0
+            with transaction.atomic():
+                for classe in classes:
+                    for eleve in classe.eleves.all():
+                        decision_val = request.POST.get(f'decision_{eleve.pk}', 'ADMIS')
+                        destination_id = request.POST.get(f'destination_{eleve.pk}', '') or None
+                        observations = request.POST.get(f'obs_{eleve.pk}', '')
+                        valider = request.POST.get(f'valider_{eleve.pk}') == '1'
+
+                        decision, created = DecisionPromotion.objects.update_or_create(
+                            eleve=eleve,
+                            annee_scolaire=annee,
+                            defaults={
+                                'classe_source': classe,
+                                'decision': decision_val,
+                                'classe_destination_id': destination_id,
+                                'observations': observations,
+                                'validee': valider,
+                                'decidee_par': request.user,
+                            }
+                        )
+                        nb_sauvegardees += 1
+                        if valider:
+                            nb_validees += 1
+
+            JournalOperation.objects.create(
+                type_operation='PROMOTION',
+                annee_scolaire=annee,
+                utilisateur=request.user,
+                details={
+                    'annee': annee.annee,
+                    'nb_decisions': nb_sauvegardees,
+                    'nb_validees': nb_validees,
+                },
+            )
+            messages.success(request, f"✅ {nb_sauvegardees} décision(s) sauvegardée(s), {nb_validees} validée(s).")
+            return redirect('promotion_eleves', pk=pk)
+
+        elif action == 'appliquer_promotions':
+            # Appliquer les décisions validées : déplacer les élèves vers leurs nouvelles classes
+            decisions_admis = DecisionPromotion.objects.filter(
+                annee_scolaire=annee,
+                validee=True,
+                decision='ADMIS',
+                classe_destination__isnull=False,
+            ).select_related('eleve', 'classe_destination')
+
+            nb_deplace = 0
+            with transaction.atomic():
+                for decision in decisions_admis:
+                    decision.eleve.classe = decision.classe_destination
+                    decision.eleve.save(update_fields=['classe'])
+                    nb_deplace += 1
+
+            JournalOperation.objects.create(
+                type_operation='PROMOTION',
+                annee_scolaire=annee,
+                utilisateur=request.user,
+                details={
+                    'annee': annee.annee,
+                    'action': 'application',
+                    'nb_deplace': nb_deplace,
+                },
+            )
+            messages.success(request, f"✅ {nb_deplace} élève(s) déplacé(s) vers leur nouvelle classe.")
+            return redirect('promotion_eleves', pk=pk)
+
+    # Récupérer les décisions existantes
+    decisions_existantes = {
+        d.eleve_id: d
+        for d in DecisionPromotion.objects.filter(annee_scolaire=annee).select_related('classe_destination')
+    }
+
+    lignes = []
+    for classe in classes:
+        for eleve in classe.eleves.all():
+            decision = decisions_existantes.get(eleve.pk)
+            # Auto-suggestion du niveau suivant
+            niveau_suivant = classe.niveau.get_niveau_suivant() if classe.niveau else None
+            lignes.append({
+                'eleve': eleve,
+                'classe': classe,
+                'decision': decision,
+                'niveau_suivant': niveau_suivant,
+            })
+
+    nb_valides = sum(1 for d in decisions_existantes.values() if d.validee)
+
+    return render(request, 'classes/promotion_eleves.html', {
+        'annee': annee,
+        'lignes': lignes,
+        'classes_cibles': classes_cibles,
+        'annees_cibles': annees_cibles,
+        'decision_choices': DecisionPromotion.DECISION_CHOICES,
+        'nb_valides': nb_valides,
+        'nb_total': len(lignes),
+    })
+
+
+@login_required
+@prefet_required
+def journal_operations(request):
+    """Journal des opérations sur les années scolaires."""
+    annee_id = request.GET.get('annee', '')
+    operations = JournalOperation.objects.select_related('annee_scolaire', 'utilisateur').all()
+    if annee_id:
+        operations = operations.filter(annee_scolaire_id=annee_id)
+    annees = AnneeScolaire.objects.all()
+    return render(request, 'classes/journal_operations.html', {
+        'operations': operations,
+        'annees': annees,
+        'annee_id': annee_id,
+    })
 
 
 @login_required
@@ -68,18 +388,17 @@ def annee_activer(request, pk):
 def reconduire_annee(request, pk):
     """
     Reconduction d'une année scolaire vers une nouvelle :
-    - Recopie les classes (même nom/section, nouvelle année)
+    - Recopie les classes (même nom/section/niveau, nouvelle année)
     - Recopie les affectations matières/enseignants par classe
     - Déplace les élèves vers leurs nouvelles classes
-    - Notes et bulletins : fresh start (ne sont pas copiés)
+    - Notes et bulletins : fresh start
     """
     source_annee = get_object_or_404(AnneeScolaire, pk=pk)
-    toutes_annees = AnneeScolaire.objects.exclude(pk=pk).order_by('-annee')
+    toutes_annees = AnneeScolaire.objects.exclude(pk=pk).filter(cloturee=False).order_by('-annee')
 
-    # Préparer l'aperçu des données de la source
     classes_source = Classe.objects.filter(
         annee_scolaire=source_annee
-    ).select_related('section').prefetch_related('matieres__matiere', 'matieres__enseignant', 'eleves')
+    ).select_related('section', 'niveau').prefetch_related('matieres__matiere', 'matieres__enseignant', 'eleves')
 
     apercu = []
     for c in classes_source:
@@ -104,6 +423,12 @@ def reconduire_annee(request, pk):
                 messages.error(request, f"L'année «{nouvelle_annee_str}» existe déjà. Sélectionnez-la dans la liste.")
                 return redirect(request.path)
             target_annee = AnneeScolaire.objects.create(annee=nouvelle_annee_str, active=False)
+            JournalOperation.objects.create(
+                type_operation='CREATION_ANNEE',
+                annee_scolaire=target_annee,
+                utilisateur=request.user,
+                details={'annee': nouvelle_annee_str, 'source': source_annee.annee},
+            )
         else:
             messages.error(request, "Indiquez une nouvelle année scolaire.")
             return redirect(request.path)
@@ -112,21 +437,23 @@ def reconduire_annee(request, pk):
 
         try:
             with transaction.atomic():
-                # ── Reconduire chaque classe ──
                 for c in classes_source:
-                    # Créer la classe dans la nouvelle année (skip si existe déjà)
                     new_classe, created = Classe.objects.get_or_create(
                         nom=c.nom,
                         section=c.section,
                         annee_scolaire=target_annee,
+                        defaults={'niveau': c.niveau},
                     )
                     if created:
                         stats['classes'] += 1
                     else:
+                        # Mettre à jour le niveau si la classe existait déjà
+                        if new_classe.niveau != c.niveau:
+                            new_classe.niveau = c.niveau
+                            new_classe.save(update_fields=['niveau'])
                         stats['ignorees'] += 1
 
                     if copier_matieres:
-                        # Copier les affectations matières/enseignants
                         from subjects.models import MatiereClasse
                         for mc in c.matieres.select_related('matiere', 'enseignant'):
                             _, mc_created = MatiereClasse.objects.get_or_create(
@@ -138,16 +465,49 @@ def reconduire_annee(request, pk):
                                 stats['matieres'] += 1
 
                     if copier_eleves:
-                        # Déplacer les élèves vers la nouvelle classe
+                        # Utiliser les décisions de promotion si disponibles
+                        decisions_map = {
+                            d.eleve_id: d
+                            for d in DecisionPromotion.objects.filter(
+                                annee_scolaire=source_annee,
+                                classe_source=c,
+                                validee=True,
+                            ).select_related('classe_destination')
+                        }
                         for eleve in c.eleves.all():
-                            eleve.classe = new_classe
+                            decision = decisions_map.get(eleve.pk)
+                            if decision and decision.decision == 'ADMIS' and decision.classe_destination:
+                                # Promouvoir vers la classe de destination
+                                eleve.classe = decision.classe_destination
+                            elif decision and decision.decision in ('TRANSFERE', 'DIPLOME'):
+                                # Ne pas déplacer (archivé ou transféré)
+                                continue
+                            else:
+                                # Par défaut : déplacer vers la même classe dans la nouvelle année
+                                eleve.classe = new_classe
                             eleve.save(update_fields=['classe'])
                             stats['eleves'] += 1
 
-                # ── Activer la nouvelle année si demandé ──
                 if activer:
                     target_annee.active = True
                     target_annee.save()
+                    JournalOperation.objects.create(
+                        type_operation='ACTIVATION_ANNEE',
+                        annee_scolaire=target_annee,
+                        utilisateur=request.user,
+                        details={'annee': target_annee.annee},
+                    )
+
+            JournalOperation.objects.create(
+                type_operation='MIGRATION',
+                annee_scolaire=target_annee,
+                utilisateur=request.user,
+                details={
+                    'source': source_annee.annee,
+                    'destination': target_annee.annee,
+                    'stats': stats,
+                },
+            )
 
         except Exception as e:
             messages.error(request, f"Erreur lors de la reconduction : {e}")
@@ -168,9 +528,7 @@ def reconduire_annee(request, pk):
         )
         return redirect('annee_list')
 
-    # Suggestion automatique de la prochaine année
     suggestion = _suggerer_prochaine_annee(source_annee.annee)
-
     return render(request, 'classes/reconduire_annee.html', {
         'source_annee': source_annee,
         'toutes_annees': toutes_annees,
@@ -179,13 +537,47 @@ def reconduire_annee(request, pk):
     })
 
 
-def _suggerer_prochaine_annee(annee_str):
-    """À partir de '2024-2025' suggère '2025-2026'."""
-    try:
-        debut, fin = annee_str.split('-')
-        return f"{int(debut)+1}-{int(fin)+1}"
-    except Exception:
-        return ""
+# ─── Niveau ───────────────────────────────────────────────────────────────────
+
+@login_required
+@prefet_required
+def niveau_list(request):
+    niveaux = Niveau.objects.annotate(nb_classes=Count('classes')).all()
+    return render(request, 'classes/niveau_list.html', {'niveaux': niveaux})
+
+
+@login_required
+@prefet_required
+def niveau_create(request):
+    form = NiveauForm(request.POST or None)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Niveau créé.")
+        return redirect('niveau_list')
+    return render(request, 'classes/niveau_form.html', {'form': form, 'titre': 'Ajouter un niveau'})
+
+
+@login_required
+@prefet_required
+def niveau_update(request, pk):
+    niveau = get_object_or_404(Niveau, pk=pk)
+    form = NiveauForm(request.POST or None, instance=niveau)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Niveau modifié.")
+        return redirect('niveau_list')
+    return render(request, 'classes/niveau_form.html', {'form': form, 'titre': 'Modifier le niveau', 'obj': niveau})
+
+
+@login_required
+@prefet_required
+def niveau_delete(request, pk):
+    niveau = get_object_or_404(Niveau, pk=pk)
+    if request.method == 'POST':
+        niveau.delete()
+        messages.success(request, "Niveau supprimé.")
+        return redirect('niveau_list')
+    return render(request, 'classes/confirm_delete.html', {'obj': niveau, 'type': 'niveau'})
 
 
 # ─── Section ──────────────────────────────────────────────────────────────────
@@ -237,7 +629,7 @@ def section_delete(request, pk):
 def classe_list(request):
     annee    = AnneeScolaire.objects.filter(active=True).first()
     annee_id = request.GET.get('annee', annee.pk if annee else None)
-    classes  = Classe.objects.select_related('section', 'annee_scolaire')
+    classes  = Classe.objects.select_related('section', 'annee_scolaire', 'niveau')
     if annee_id:
         classes = classes.filter(annee_scolaire_id=annee_id)
     annees = AnneeScolaire.objects.all()
@@ -261,6 +653,9 @@ def classe_create(request):
 @prefet_required
 def classe_update(request, pk):
     classe = get_object_or_404(Classe, pk=pk)
+    if not classe.est_modifiable:
+        messages.error(request, "Impossible de modifier une classe d'une année clôturée.")
+        return redirect('classe_list')
     form = ClasseForm(request.POST or None, instance=classe)
     if form.is_valid():
         form.save()
@@ -273,6 +668,9 @@ def classe_update(request, pk):
 @prefet_required
 def classe_delete(request, pk):
     classe = get_object_or_404(Classe, pk=pk)
+    if not classe.est_modifiable:
+        messages.error(request, "Impossible de supprimer une classe d'une année clôturée.")
+        return redirect('classe_list')
     if request.method == 'POST':
         classe.delete()
         messages.success(request, "Classe supprimée.")

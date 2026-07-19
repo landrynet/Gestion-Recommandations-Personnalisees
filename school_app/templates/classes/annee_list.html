@@ -9,8 +9,8 @@
 
 <div class="alert alert-info py-2 small mb-3">
   <i class="bi bi-info-circle me-2"></i>
-  Pour passer à une nouvelle année scolaire, utilisez <strong>Reconduire →</strong> sur l'année en cours.
-  Cela recopie les classes, les matières et les élèves automatiquement — les notes repartent de zéro.
+  Pour passer à une nouvelle année, utilisez <strong>Reconduire →</strong> sur l'année en cours.
+  Pour archiver définitivement une année, utilisez <strong>Clôturer</strong> après avoir publié tous les résultats.
 </div>
 
 <div class="card">
@@ -21,61 +21,66 @@
           <th>Année</th>
           <th>Statut</th>
           <th class="text-center">Classes</th>
-          <th class="text-center">Élèves</th>
           <th class="text-end">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for a in annees %}
-        <tr class="{% if a.active %}table-success bg-opacity-10{% endif %}">
+        <tr class="{% if a.active %}table-success bg-opacity-10{% elif a.cloturee %}table-secondary bg-opacity-25{% endif %}">
           <td class="fw-bold">
             {{ a.annee }}
             {% if a.active %}<span class="badge bg-success ms-2">● Active</span>{% endif %}
+            {% if a.cloturee %}<span class="badge bg-secondary ms-2"><i class="bi bi-lock-fill me-1"></i>Clôturée</span>{% endif %}
           </td>
           <td>
-            {% if a.active %}
+            {% if a.cloturee %}
+              <span class="text-muted small"><i class="bi bi-lock me-1"></i>Archive — lecture seule</span>
+            {% elif a.active %}
               <span class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>En cours</span>
             {% else %}
-              <span class="text-muted small"><i class="bi bi-archive me-1"></i>Archivée</span>
+              <span class="text-muted small"><i class="bi bi-pause-circle me-1"></i>Inactive</span>
             {% endif %}
           </td>
-          <td class="text-center"><span class="badge bg-primary rounded-pill">{{ a.classes.count }}</span></td>
-          <td class="text-center">
-            {% with nb=a.classes.all %}
-            <span class="badge bg-secondary rounded-pill">
-              {% for c in nb %}{% if forloop.first %}{% with total=c.eleves.count %}{{ total }}{% endwith %}{% endif %}{% endfor %}
-              …
-            </span>
-            {% endwith %}
-          </td>
+          <td class="text-center"><span class="badge bg-primary rounded-pill">{{ a.nb_classes }}</span></td>
           <td class="text-end">
-            {% if not a.active %}
-            <form method="post" action="{% url 'annee_activer' a.pk %}" class="d-inline">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-outline-success me-1" title="Rendre active">
-                <i class="bi bi-toggle-on"></i> Activer
-              </button>
-            </form>
-            {% endif %}
-            <a href="{% url 'reconduire_annee' a.pk %}" class="btn btn-sm btn-warning me-1" title="Reconduire vers une nouvelle année">
-              <i class="bi bi-arrow-repeat me-1"></i>Reconduire →
-            </a>
-            <a href="{% url 'annee_update' a.pk %}" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
-            {% if not a.active %}
-            <a href="{% url 'annee_delete' a.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+            {% if not a.cloturee %}
+              {% if not a.active %}
+              <form method="post" action="{% url 'annee_activer' a.pk %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-success me-1" title="Rendre active">
+                  <i class="bi bi-toggle-on"></i> Activer
+                </button>
+              </form>
+              {% endif %}
+              <a href="{% url 'promotion_eleves' a.pk %}" class="btn btn-sm btn-outline-info me-1" title="Promotions des élèves">
+                <i class="bi bi-arrow-up-circle me-1"></i>Promotions
+              </a>
+              <a href="{% url 'reconduire_annee' a.pk %}" class="btn btn-sm btn-warning me-1" title="Reconduire vers une nouvelle année">
+                <i class="bi bi-arrow-repeat me-1"></i>Reconduire →
+              </a>
+              <a href="{% url 'cloture_annee' a.pk %}" class="btn btn-sm btn-outline-danger me-1" title="Clôturer l'année">
+                <i class="bi bi-lock me-1"></i>Clôturer
+              </a>
+              {% if not a.active %}
+              <a href="{% url 'annee_delete' a.pk %}" class="btn btn-sm btn-outline-danger" title="Supprimer"><i class="bi bi-trash"></i></a>
+              {% endif %}
+            {% else %}
+              <span class="text-muted small fst-italic">Clôturée le {{ a.date_cloture|date:"d/m/Y" }}</span>
             {% endif %}
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" class="text-center text-muted py-4">Aucune année scolaire</td></tr>
+        <tr><td colspan="4" class="text-center text-muted py-4">Aucune année scolaire</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
 
-<div class="mt-3 d-flex gap-2">
+<div class="mt-3 d-flex gap-2 flex-wrap">
+  <a href="{% url 'niveau_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-layers me-1"></i>Gérer les niveaux</a>
   <a href="{% url 'section_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-diagram-3 me-1"></i>Gérer les sections</a>
   <a href="{% url 'classe_list' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-building me-1"></i>Gérer les classes</a>
+  <a href="{% url 'journal_operations' %}" class="btn btn-outline-dark btn-sm"><i class="bi bi-journal-text me-1"></i>Journal des opérations</a>
 </div>
 {% endblock %}

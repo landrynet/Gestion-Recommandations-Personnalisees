@@ -10,3 +10,9 @@ Pillow
 qrcode
 reportlab
 whitenoise
+django>=6.0.7
+openpyxl
+pillow
+qrcode
+reportlab
+whitenoise

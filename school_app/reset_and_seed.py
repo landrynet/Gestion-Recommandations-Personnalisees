@@ -19,7 +19,7 @@ from subjects.models import MatiereClasse, Matiere
 from students.models import Student
 from teachers.models import Teacher
 from accounts.models import CustomUser
-from classes.models import Classe, Section, AnneeScolaire
+from classes.models import Classe, Section, AnneeScolaire, Niveau, DecisionPromotion, JournalOperation
 from school_settings.models import SchoolInfo
 
 Note.objects.all().delete()
@@ -31,8 +31,11 @@ MatiereClasse.objects.all().delete()
 Student.objects.all().delete()
 Teacher.objects.all().delete()
 CustomUser.objects.all().delete()
+DecisionPromotion.objects.all().delete()
+JournalOperation.objects.all().delete()
 Classe.objects.all().delete()
 Section.objects.all().delete()
+Niveau.objects.all().delete()
 AnneeScolaire.objects.all().delete()
 Matiere.objects.all().delete()
 SchoolInfo.objects.all().delete()
@@ -79,7 +82,15 @@ annee = AnneeScolaire.objects.create(annee='2024-2025', active=True)
 print(f"📅 Année scolaire : {annee.annee}")
 
 # ══════════════════════════════════════════════════════════════════
-#  4. SECTIONS
+#  4. NIVEAUX SCOLAIRES (Phase 3)
+# ══════════════════════════════════════════════════════════════════
+niv_4 = Niveau.objects.create(nom='4ème', ordre=1, cycle='Secondaire')
+niv_5 = Niveau.objects.create(nom='5ème', ordre=2, cycle='Secondaire')
+niv_6 = Niveau.objects.create(nom='6ème', ordre=3, cycle='Secondaire')
+print("📊 Niveaux : 4ème | 5ème | 6ème (Secondaire)")
+
+# ══════════════════════════════════════════════════════════════════
+#  5. SECTIONS
 # ══════════════════════════════════════════════════════════════════
 sec_sc   = Section.objects.create(nom='Sciences')
 sec_lit  = Section.objects.create(nom='Littéraire')
@@ -87,20 +98,20 @@ sec_comm = Section.objects.create(nom='Commerciale & Gestion')
 print("📚 Sections : Sciences | Littéraire | Commerciale & Gestion")
 
 # ══════════════════════════════════════════════════════════════════
-#  5. CLASSES
+#  6. CLASSES (liées aux Niveaux)
 # ══════════════════════════════════════════════════════════════════
-def mk_classe(nom, section):
-    return Classe.objects.create(nom=nom, section=section, annee_scolaire=annee)
+def mk_classe(nom, section, niveau=None):
+    return Classe.objects.create(nom=nom, section=section, annee_scolaire=annee, niveau=niveau)
 
 classes = {
-    '4SC':  mk_classe('4ème', sec_sc),
-    '5SC':  mk_classe('5ème', sec_sc),
-    '6SC':  mk_classe('6ème', sec_sc),
-    '4LIT': mk_classe('4ème', sec_lit),
-    '5LIT': mk_classe('5ème', sec_lit),
-    '4CG':  mk_classe('4ème', sec_comm),
+    '4SC':  mk_classe('A', sec_sc, niv_4),
+    '5SC':  mk_classe('A', sec_sc, niv_5),
+    '6SC':  mk_classe('A', sec_sc, niv_6),
+    '4LIT': mk_classe('A', sec_lit, niv_4),
+    '5LIT': mk_classe('A', sec_lit, niv_5),
+    '4CG':  mk_classe('A', sec_comm, niv_4),
 }
-print(f"🏛️  {len(classes)} classes créées")
+print(f"🏛️  {len(classes)} classes créées (avec niveaux)")
 
 # ══════════════════════════════════════════════════════════════════
 #  6. COMPTES UTILISATEURS

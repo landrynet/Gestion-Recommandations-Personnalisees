@@ -1,30 +1,18 @@
 ---
-name: Django SGN RDC Setup
-description: Détails de configuration du projet Django de gestion des notes RDC dans ce workspace Node.js/pnpm.
+name: Django SGN setup
+description: How the SGN RDC Django school app is set up and run on Replit.
 ---
 
-## Règle clé
+# Django SGN RDC — Setup
 
-L'app Django vit dans `school_app/` à la racine du workspace (pas dans `artifacts/`).
-Le workflow s'appelle exactement `SGN Django` — commande: `cd school_app && python3 manage.py runserver 0.0.0.0:8000` sur le port 8000.
+**Why:** The app uses a custom Python environment (uv/pip managed globally, no venv). Django must be installed via `installLanguagePackages({ language: "python", packages: [...] })` if missing.
 
-**Why:** Le workspace est un monorepo pnpm/Node.js mais l'utilisateur exige Django (Python). Les deux coexistent sans conflit.
+**Run command:** `cd /home/runner/workspace/school_app && python manage.py runserver 0.0.0.0:8000 --noreload`
 
-**How to apply:** Toute modification Django se fait dans `school_app/`. Ne jamais créer d'artifact react-vite pour cette app. Migrations avec `cd school_app && python3 manage.py migrate`.
+**How to apply:** The workflow `SGN Django` manages this. To run management commands: `cd /home/runner/workspace/school_app && python manage.py <command>`.
 
-## Comptes par défaut
+**Packages required:** django>=6.0.7, pillow, reportlab, whitenoise, qrcode, openpyxl — declared in `/home/runner/workspace/pyproject.toml`.
 
-- prefet / prefet2024 (role=prefet)
-- enseignant1 / ens2024 (role=enseignant)
+**DB:** SQLite at `school_app/db.sqlite3`. Seed: `python manage.py shell < reset_and_seed.py`.
 
-## Dépendances Python installées
-
-django==6.0.7, pillow, reportlab, whitenoise — via `.pythonlibs/` (uv)
-
-## Structure bulletin officiel RDC (figée)
-
-- MAXIMA 20 → TG max 160 (×8 périodes)
-- MAXIMA 30 → TG max 240
-- MAXIMA 60 → TG max 480
-
-Les maxima ne sont JAMAIS modifiables par l'utilisateur — c'est une règle métier.
+**Preview path:** Routes to `localhost:8000` via Replit proxy. Screenshot tool requires a registered artifact — app not yet registered as artifact.

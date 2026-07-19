@@ -68,8 +68,8 @@
     <a href="{% url 'teacher_list' %}" class="nav-link {% if 'teacher' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-person-badge-fill"></i><span>Enseignants</span>
     </a>
-    <a href="{% url 'classe_list' %}" class="nav-link {% if 'classe' in request.resolver_match.url_name or 'section' in request.resolver_match.url_name or 'annee' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-building-fill"></i><span>Classes</span>
+    <a href="{% url 'classe_list' %}" class="nav-link {% if 'classe' in request.resolver_match.url_name or 'section' in request.resolver_match.url_name or 'annee' in request.resolver_match.url_name or 'niveau' in request.resolver_match.url_name or 'promotion' in request.resolver_match.url_name or 'cloture' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-building-fill"></i><span>Classes & niveaux</span>
     </a>
     <a href="{% url 'matiere_list' %}" class="nav-link {% if 'matiere' in request.resolver_match.url_name or 'affectation' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-book-fill"></i><span>Matières & affectations</span>
@@ -97,6 +97,16 @@
     </a>
     <a href="{% url 'portail_acces_list' %}" class="nav-link {% if request.resolver_match.url_name == 'portail_acces_list' %}active{% endif %}">
       <i class="bi bi-shield-check"></i><span>Accès portail</span>
+    </a>
+    <div class="nav-section-label">Années scolaires</div>
+    <a href="{% url 'annee_list' %}" class="nav-link {% if request.resolver_match.url_name == 'annee_list' or 'cloture' in request.resolver_match.url_name or 'promotion' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-calendar3-fill"></i><span>Gestion des années</span>
+    </a>
+    <a href="{% url 'niveau_list' %}" class="nav-link {% if 'niveau' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-layers-fill"></i><span>Niveaux</span>
+    </a>
+    <a href="{% url 'journal_operations' %}" class="nav-link {% if request.resolver_match.url_name == 'journal_operations' %}active{% endif %}">
+      <i class="bi bi-journal-text"></i><span>Journal des opérations</span>
     </a>
   </nav>
   <div class="sidebar-footer">
