@@ -25,7 +25,7 @@ def password_strength(password):
 # ─── Formulaire de connexion ─────────────────────────────────────────────────
 
 class LoginForm(AuthenticationForm):
-    """Connexion par adresse e-mail (avec fallback identifiant pour le préfet existant)."""
+    """Connexion par adresse e-mail — traduit l'email en username avant authenticate()."""
     username = forms.CharField(
         label='Adresse e-mail',
         widget=forms.EmailInput(attrs={
@@ -41,6 +41,18 @@ class LoginForm(AuthenticationForm):
             'placeholder': 'Mot de passe',
         })
     )
+
+    def clean(self):
+        # Résoudre l'email → username avant que AuthenticationForm ne cherche l'utilisateur
+        email_or_username = self.data.get('username', '').strip().lower()
+        try:
+            user = CustomUser.objects.get(email__iexact=email_or_username)
+            # Injecter le vrai username pour que super().clean() fonctionne
+            self.data = self.data.copy()
+            self.data['username'] = user.username
+        except CustomUser.DoesNotExist:
+            pass  # Laisse super().clean() générer l'erreur "identifiants incorrects"
+        return super().clean()
 
 
 # ─── Création d'utilisateur ───────────────────────────────────────────────────
