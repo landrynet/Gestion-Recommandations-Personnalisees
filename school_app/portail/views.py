@@ -39,9 +39,34 @@ def _build_qr_url(request, token):
 
 
 def _calc_resultats_par_periode(modele, eleve, periodes_a_afficher):
-    """Retourne un dict {periode: {label, notes, total_obtenu, total_max, pourcentage, rang}}."""
+    """Retourne un dict {periode: {label, notes, total_obtenu, total_max, pourcentage, rang}}.
+
+    Optimisations ORM :
+    - 1 seule requête pour tous les MatiereClasse de la classe
+    - 1 seule requête pour toutes les notes de l'élève (toutes périodes d'un coup)
+    - 1 seule requête par période pour les rangs (agrégat par élève)
+    """
     resultats = {}
     bms = list(modele.matieres.select_related('matiere').order_by('matiere__maxima', 'ordre'))
+
+    # ── Charger tous les MatiereClasse de la classe en une seule requête ──
+    matieres_ids = [bm.matiere_id for bm in bms]
+    mc_map = {
+        mc.matiere_id: mc
+        for mc in MatiereClasse.objects.filter(
+            matiere_id__in=matieres_ids, classe=modele.classe
+        ).select_related('matiere')
+    }
+    mc_ids = list(mc_map[mid].pk for mid in mc_map)
+
+    # ── Charger toutes les notes de l'élève en une seule requête ──
+    notes_eleve = {}
+    for note in Note.objects.filter(
+        eleve=eleve,
+        matiere_classe__in=list(mc_map.values()),
+        periode__in=periodes_a_afficher,
+    ).select_related('matiere_classe'):
+        notes_eleve[(note.matiere_classe_id, note.periode)] = note.valeur
 
     for periode in periodes_a_afficher:
         data = {
@@ -53,35 +78,35 @@ def _calc_resultats_par_periode(modele, eleve, periodes_a_afficher):
             'rang': '-',
         }
         for bm in bms:
-            mat = bm.matiere
-            try:
-                mc = MatiereClasse.objects.get(matiere=mat, classe=modele.classe)
-            except MatiereClasse.DoesNotExist:
-                continue
-            note_obj = Note.objects.filter(eleve=eleve, matiere_classe=mc, periode=periode).first()
-            valeur = note_obj.valeur if (note_obj and note_obj.valeur is not None) else None
-            mx = Decimal(str(mat.maxima))
+            mc = mc_map.get(bm.matiere_id)
+            if mc is None:
+                continue                         # matière non affectée à cette classe
+            valeur = notes_eleve.get((mc.pk, periode))
+            mx = Decimal(str(bm.matiere.maxima))
             data['total_max'] += mx
             if valeur is not None:
                 data['total_obtenu'] += valeur
-            data['notes'].append({'matiere': mat, 'note': valeur, 'maxima': mat.maxima})
+            data['notes'].append({'matiere': bm.matiere, 'note': valeur, 'maxima': bm.matiere.maxima})
         if data['total_max'] > 0:
             data['pourcentage'] = round(float(data['total_obtenu']) / float(data['total_max']) * 100, 2)
         resultats[periode] = data
 
-    # Calcul des rangs
-    mc_ids = list(MatiereClasse.objects.filter(classe=modele.classe).values_list('pk', flat=True))
+    # ── Calcul des rangs — 1 requête par période ──
     for periode, data in resultats.items():
-        scores = list(
-            Note.objects.filter(matiere_classe__in=mc_ids, periode=periode)
-            .values('eleve')
-            .annotate(total=Sum('valeur'))
-            .order_by('-total')
-            .values_list('total', flat=True)
-        )
         try:
-            rang = [i + 1 for i, s in enumerate(scores) if s == data['total_obtenu']]
-            data['rang'] = rang[0] if rang else '-'
+            scores = list(
+                Note.objects.filter(matiere_classe__in=mc_ids, periode=periode)
+                .values('eleve')
+                .annotate(total=Sum('valeur'))
+                .order_by('-total')
+                .values_list('total', flat=True)
+            )
+            rang = next(
+                (i + 1 for i, s in enumerate(scores)
+                 if s is not None and abs(float(s) - float(data['total_obtenu'])) < 0.001),
+                '-'
+            )
+            data['rang'] = rang
         except Exception:
             data['rang'] = '-'
 
@@ -204,6 +229,7 @@ def portail_resultats(request, token):
 
     return render(request, 'portail/resultats.html', {
         'config': config, 'school': school, 'eleve': eleve,
+        'acces': acces,                          # ← corrige NoReverseMatch → 500
         'resultats': resultats,
         'resultat_annuel': resultat_annuel,
         'nb_eleves': eleve.classe.eleves.count(),

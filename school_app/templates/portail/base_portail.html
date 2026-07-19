@@ -63,6 +63,19 @@
     }
   </style>
   {% block extra_css %}{% endblock %}
+  <style>
+    #sgn-bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:9999;
+      background:linear-gradient(90deg,var(--p-primary),#93c5fd);
+      border-radius:0 2px 2px 0;box-shadow:0 0 8px rgba(37,99,235,.5);
+      transition:width .25s ease,opacity .3s ease;pointer-events:none;}
+    #sgn-bar.done{width:100%!important;opacity:0;transition:width .15s ease,opacity .5s .15s ease;}
+    .btn-loading{position:relative;pointer-events:none;opacity:.8;}
+    .btn-loading .btn-spinner{display:inline-block;width:1em;height:1em;
+      border:2px solid currentColor;border-top-color:transparent;
+      border-radius:50%;animation:btn-spin .6s linear infinite;
+      margin-right:.4em;vertical-align:middle;}
+    @keyframes btn-spin{to{transform:rotate(360deg);}}
+  </style>
 </head>
 <body>
 <header class="portail-header">
@@ -102,12 +115,51 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% block extra_js %}{% endblock %}
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(() => {}).catch(() => {});
+(function () {
+  'use strict';
+  const Bar = (() => {
+    const el = document.createElement('div');
+    el.id = 'sgn-bar';
+    document.body.prepend(el);
+    let pct = 0, rafId = null, active = false;
+    function set(p) { pct = Math.min(p, 99); el.style.width = pct + '%'; el.style.opacity = '1'; el.classList.remove('done'); }
+    function trickle() { const inc = pct < 20 ? 10 : pct < 50 ? 5 : pct < 80 ? 2 : 0.5; set(pct + inc); rafId = requestAnimationFrame(() => setTimeout(trickle, 300)); }
+    return {
+      start() { if (active) return; active = true; pct = 0; set(3); trickle(); },
+      done() {
+        if (!active) return; active = false; cancelAnimationFrame(rafId);
+        el.style.width = '100%'; el.classList.add('done');
+        el.addEventListener('transitionend', () => { pct = 0; el.style.width = '0'; }, { once: true });
+      }
+    };
+  })();
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript') || a.target === '_blank' || e.ctrlKey || e.metaKey) return;
+    Bar.start();
   });
-}
+  window.addEventListener('pageshow', () => Bar.done());
+  window.addEventListener('load', () => Bar.done());
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    const btn = form.querySelector('[type="submit"]');
+    if (!btn || btn.dataset.loading) return;
+    Bar.start();
+    btn.dataset.loading = '1';
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spinner"></span>${btn.textContent.trim()}`;
+    setTimeout(() => {
+      if (!form.checkValidity || form.checkValidity()) return;
+      btn.disabled = false; btn.innerHTML = orig; delete btn.dataset.loading; Bar.done();
+    }, 200);
+  });
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+  }
+})();
 </script>
 </body>
 </html>
