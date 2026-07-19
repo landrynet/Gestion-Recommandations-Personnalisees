@@ -200,32 +200,23 @@ def portail_resultats(request, token):
     periodes_a_afficher = [p for p in PERIODES_NORMALES if p in periodes_publiees]
     resultats = _calc_resultats_par_periode(modele, eleve, periodes_a_afficher)
 
-    # Résultat annuel
+    # ── Résultat annuel ──────────────────────────────────────────────────────────
+    # Utilise EXACTEMENT la même formule que le bulletin PDF officiel (_calc_eleve)
+    # afin que portail et bulletin affichent toujours les mêmes chiffres.
+    # Le résultat annuel est indépendant des périodes individuellement publiées :
+    # si ANNUEL est coché, on calcule sur 1P+2P+EXAM1+3P+4P+EXAM2, point final.
     resultat_annuel = None
-    if 'ANNUEL' in periodes_publiees and resultats:
-        total_annuel = sum(d['total_obtenu'] for d in resultats.values())
-        max_annuel = sum(d['total_max'] for d in resultats.values())
-        pct_annuel = round(float(total_annuel) / float(max_annuel) * 100, 2) if max_annuel else 0
-
-        mc_ids = list(MatiereClasse.objects.filter(classe=eleve.classe).values_list('pk', flat=True))
-        scores_annuel = []
-        for e in Student.objects.filter(classe=eleve.classe):
-            t = sum(
-                (Note.objects.filter(eleve=e, matiere_classe__in=mc_ids, periode=p)
-                 .aggregate(t=Sum('valeur'))['t'] or Decimal('0'))
-                for p in periodes_a_afficher
-            )
-            scores_annuel.append(t)
-        scores_annuel.sort(reverse=True)
+    if 'ANNUEL' in periodes_publiees:
         try:
-            rang_annuel = scores_annuel.index(total_annuel) + 1
-        except ValueError:
-            rang_annuel = '-'
-
-        resultat_annuel = {
-            'total': total_annuel, 'max': max_annuel,
-            'pourcentage': pct_annuel, 'rang': rang_annuel,
-        }
+            from bulletin.pdf_views import _calc_eleve as _pdf_calc, _get_classement as _pdf_rang
+            _, total_annuel, max_annuel, pct_annuel, _, _ = _pdf_calc(modele, eleve)
+            rang_annuel = _pdf_rang(modele, total_annuel)
+            resultat_annuel = {
+                'total': total_annuel, 'max': max_annuel,
+                'pourcentage': pct_annuel, 'rang': rang_annuel,
+            }
+        except Exception:
+            pass
 
     return render(request, 'portail/resultats.html', {
         'config': config, 'school': school, 'eleve': eleve,

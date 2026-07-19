@@ -46,10 +46,19 @@ def _note_str(val):
 
 
 def _calc_eleve(modele, eleve):
+    """Calcule les notes de l'élève selon la formule officielle du bulletin.
+
+    Retourne : (matieres_data, total_obtenu, total_max_tg, pct, total_s1, total_s2)
+    total_s1 = somme des TOT S1 (1P+2P+EXAM1) sur toutes les matières
+    total_s2 = somme des TOT S2 (3P+4P+EXAM2) sur toutes les matières
+    NOTA : cette fonction est la SOURCE DE VÉRITÉ du portail parents pour le résultat annuel.
+    """
     periodes = ['1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2', 'REPECHAGE']
     matieres_data = []
     total_obtenu = Decimal('0')
     total_max_tg = Decimal('0')
+    total_s1     = Decimal('0')
+    total_s2     = Decimal('0')
 
     for bm in modele.matieres.select_related('matiere').order_by('matiere__maxima', 'ordre'):
         mat = bm.matiere
@@ -84,6 +93,8 @@ def _calc_eleve(modele, eleve):
 
         total_obtenu += tg
         total_max_tg += max_tg
+        total_s1     += (tot_s1 or Decimal('0'))
+        total_s2     += (tot_s2 or Decimal('0'))
 
         matieres_data.append({
             'matiere':   mat,
@@ -100,10 +111,11 @@ def _calc_eleve(modele, eleve):
         })
 
     pct = round(float(total_obtenu) / float(total_max_tg) * 100, 2) if total_max_tg else 0
-    return matieres_data, total_obtenu, total_max_tg, pct
+    return matieres_data, total_obtenu, total_max_tg, pct, total_s1, total_s2
 
 
 def _get_classement(modele, eleve_score):
+    """Classement annuel (hors repêchage) — identique à la formule bulletin."""
     from django.db.models import Sum
     scores = []
     for e in Student.objects.filter(classe=modele.classe):
@@ -116,6 +128,28 @@ def _get_classement(modele, eleve_score):
         return scores.index(eleve_score) + 1
     except ValueError:
         return '-'
+
+
+def _get_classement_semestres(modele, s1_score, s2_score):
+    """Retourne (rang_s1, rang_s2) dans la classe en une seule passe."""
+    from django.db.models import Sum
+    scores_s1, scores_s2 = [], []
+    for e in Student.objects.filter(classe=modele.classe):
+        t1 = Note.objects.filter(
+            eleve=e, matiere_classe__classe=modele.classe,
+            periode__in=['1P', '2P', 'EXAM1']
+        ).aggregate(t=Sum('valeur'))['t'] or Decimal('0')
+        t2 = Note.objects.filter(
+            eleve=e, matiere_classe__classe=modele.classe,
+            periode__in=['3P', '4P', 'EXAM2']
+        ).aggregate(t=Sum('valeur'))['t'] or Decimal('0')
+        scores_s1.append(t1)
+        scores_s2.append(t2)
+    scores_s1.sort(reverse=True)
+    scores_s2.sort(reverse=True)
+    rang_s1 = scores_s1.index(s1_score) + 1 if s1_score in scores_s1 else '-'
+    rang_s2 = scores_s2.index(s2_score) + 1 if s2_score in scores_s2 else '-'
+    return rang_s1, rang_s2
 
 
 def _mention(pct):
@@ -155,10 +189,14 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     if school is None:
         school = SchoolInfo.get_info()
 
-    matieres_data, total_obtenu, total_max, pct = _calc_eleve(modele, eleve)
-    classement = _get_classement(modele, total_obtenu)
-    nb_eleves  = eleve.classe.eleves.count() if eleve.classe else 0
-    mention    = _mention(pct)
+    matieres_data, total_obtenu, total_max, pct, total_s1, total_s2 = _calc_eleve(modele, eleve)
+    classement          = _get_classement(modele, total_obtenu)
+    rang_s1, rang_s2    = _get_classement_semestres(modele, total_s1, total_s2)
+    nb_eleves           = eleve.classe.eleves.count() if eleve.classe else 0
+    mention             = _mention(pct)
+    max_sem             = total_max / 2 if total_max else Decimal('0')
+    pct_s1 = round(float(total_s1) / float(max_sem) * 100, 1) if max_sem else 0
+    pct_s2 = round(float(total_s2) / float(max_sem) * 100, 1) if max_sem else 0
 
     buf = BytesIO()
     page_w, page_h = A4
@@ -427,41 +465,48 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     span_cmds.append(('SPAN', (10, current_row), (11, current_row)))
     current_row += 1
 
-    # ── Totaux ──
+    # ── Totaux (S1 | S2 | TG) ──────────────────────────────────────────────────
+    tot_row = current_row
     tbl_data.append([
-        _b('TOTAUX'), '', '', '', '', '', '', '', '',
-        Paragraph(f"<b>{_note_str(total_obtenu)}</b>", ctr_b),
+        _b('TOTAUX'), '', '', '',
+        Paragraph(f"<b>{_note_str(total_s1)}</b>", ctr_b),   # col 4 — TOT S1
+        '', '', '',
+        Paragraph(f"<b>{_note_str(total_s2)}</b>", ctr_b),   # col 8 — TOT S2
+        Paragraph(f"<b>{_note_str(total_obtenu)}</b>", ctr_b),# col 9 — TG
         '', '',
     ])
-    span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
     current_row += 1
 
-    # ── Pourcentage ──
+    # ── Pourcentage (S1 | S2 | Annuel) ─────────────────────────────────────────
+    pct_row = current_row
     tbl_data.append([
-        _b('POURCENTAGE'), '', '', '', '', '', '', '', '',
-        Paragraph(f"<b>{pct}%</b>", ctr_b),
+        _b('POURCENTAGE'), '', '', '',
+        _c(f"{pct_s1}%"),    # col 4 — %S1
+        '', '', '',
+        _c(f"{pct_s2}%"),    # col 8 — %S2
+        Paragraph(f"<b>{pct}%</b>", ctr_b),  # col 9 — %annuel
         '', '',
     ])
-    span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
     current_row += 1
 
-    # ── Mention ──
+    # ── Mention ──────────────────────────────────────────────────────────────────
+    mention_row = current_row
     tbl_data.append([
         _b('MENTION'), '', '', '', '', '', '', '', '',
         Paragraph(f"<b>{mention}</b>", ctr_b),
         '', '',
     ])
-    span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
     current_row += 1
 
-    # ── Place ──
-    slash = Paragraph('/', ctr)
+    # ── Place (S1 | S2 | Annuel) ─────────────────────────────────────────────────
+    place_row = current_row
     tbl_data.append([
-        _b('PLACE/NBRE ÉLÈVES'),
-        slash, slash, slash, slash,
-        slash, slash, slash, slash,
-        Paragraph(f"<b>{classement}/{nb_eleves}</b>", ctr_b),
-        slash, slash,
+        _b('PLACE/NBRE ÉLÈVES'), '', '', '',
+        _c(f"{rang_s1}/{nb_eleves}"),    # col 4 — place S1
+        '', '', '',
+        _c(f"{rang_s2}/{nb_eleves}"),    # col 8 — place S2
+        Paragraph(f"<b>{classement}/{nb_eleves}</b>", ctr_b),  # col 9 — place annuelle
+        '', '',
     ])
     current_row += 1
 
@@ -469,17 +514,18 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     for label in ['APPLICATION', 'CONDUITE']:
         tbl_data.append([_b(label)] + [''] * 11)
         row_styles.append(('BACKGROUND', (1, current_row), (8, current_row), GREY_BG))
+        span_cmds.append(('SPAN', (0, current_row), (8, current_row)))
         span_cmds.append(('SPAN', (9, current_row), (11, current_row)))
         current_row += 1
 
     # ── Signature du responsable ──
     tbl_data.append([_b("SIGN. DU RESPONSABLE")] + [''] * 11)
+    span_cmds.append(('SPAN', (0, current_row), (11, current_row)))
     current_row += 1
 
     # ── Assemblage tableau ──
     note_tbl = Table(tbl_data, colWidths=COL_W, repeatRows=3)
 
-    bilan_start = current_row - 5  # Totaux, %, Mention, Place, Application, Conduite, Sign
     base_style = [
         # Fond en-têtes
         ('BACKGROUND', (0, 0), (-1, 2), GREY_HDR),
@@ -514,9 +560,16 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
         ('LEFTPADDING',   (0, 3), (0, -1),  3),
     ]
 
-    # Fusions lignes bilan
-    for r in range(bilan_start, current_row - 2):  # Totaux, %, Mention
-        base_style.append(('SPAN', (0, r), (8, r)))
+    # ── Fusions lignes de bilan ─────────────────────────────────────────────────
+    # TOTAUX et POURCENTAGE : label (col 0-3), vide S2 sub-periods (col 5-7)
+    for row in (tot_row, pct_row, place_row):
+        span_cmds.append(('SPAN', (0,  row), (3,  row)))   # label
+        span_cmds.append(('SPAN', (1,  row), (3,  row)))   # sous-périodes S1 vides
+        span_cmds.append(('SPAN', (5,  row), (7,  row)))   # sous-périodes S2 vides
+        span_cmds.append(('SPAN', (10, row), (11, row)))   # repêchage/sign
+    # MENTION : pleine largeur (0-8)
+    span_cmds.append(('SPAN', (0, mention_row), (8,  mention_row)))
+    span_cmds.append(('SPAN', (10, mention_row), (11, mention_row)))
 
     note_tbl.setStyle(TableStyle(base_style + row_styles + span_cmds))
     story.append(note_tbl)
