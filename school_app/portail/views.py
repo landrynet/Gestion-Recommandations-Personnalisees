@@ -230,7 +230,8 @@ def portail_resultats(request, token):
                     pct_s2 = round(float(total_s2) / float(max_sem) * 100, 1)
                     resume_s2 = {'total': total_s2, 'max': max_sem, 'pourcentage': pct_s2, 'rang': rang_s2}
 
-            if annuel_publie:
+            # Le résultat annuel s'affiche dès que les deux semestres sont complets
+            if s1_complet and s2_complet:
                 rang_annuel = _pdf_rang(modele, total_annuel)
                 resultat_annuel = {
                     'total': total_annuel, 'max': max_annuel,
@@ -271,13 +272,17 @@ def portail_bulletin_pdf(request, token):
         from django.http import HttpResponseBadRequest
         return HttpResponseBadRequest("Bulletin non configuré pour cette classe.")
 
-    # Vérifier que le résultat annuel est publié
-    annuel_publie = PublicationResultats.objects.filter(
-        classe=eleve.classe, annee_scolaire=annee, periode='ANNUEL', publie=True
-    ).exists()
-    if not annuel_publie:
+    # Vérifier que les deux semestres complets sont publiés
+    periodes_pub = set(
+        PublicationResultats.objects.filter(
+            classe=eleve.classe, annee_scolaire=annee, publie=True
+        ).values_list('periode', flat=True)
+    )
+    if not (periodes_pub >= {'1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2'}):
         from django.http import HttpResponseBadRequest
-        return HttpResponseBadRequest("Le bulletin annuel n'est pas encore publié.")
+        return HttpResponseBadRequest(
+            "Les deux semestres doivent être publiés pour télécharger le bulletin."
+        )
 
     from bulletin.pdf_views import build_bulletin_pdf_response
     return build_bulletin_pdf_response(modele, eleve)

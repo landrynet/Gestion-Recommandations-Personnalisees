@@ -382,8 +382,8 @@ for mat_code, eleve in eleves.items():
         for periode in PERIODES_NORMALES:
             valeur = note_realiste(maxima, profil)
             if 'EXAM' in periode:
-                # Pour les examens, la note est sur maxima/2
-                valeur = round(valeur / 2, 1)
+                # Pour les examens, la note est sur 2*maxima (double)
+                valeur = valeur * 2
             Note.objects.create(
                 eleve=eleve,
                 matiere_classe=mc,

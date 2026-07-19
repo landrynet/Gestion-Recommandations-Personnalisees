@@ -39,10 +39,10 @@ BLUE_HDR  = colors.HexColor('#00008B')   # bleu foncé titre ministère (optionn
 
 
 def _note_str(val):
+    """Affiche une note arrondie à l'entier (sans décimale)."""
     if val is None:
         return ''
-    v = float(val)
-    return str(int(v)) if v == int(v) else f"{v:.1f}"
+    return str(int(round(float(val))))
 
 
 def _calc_eleve(modele, eleve):
@@ -110,7 +110,7 @@ def _calc_eleve(modele, eleve):
             'repechage': notes_dict.get('REPECHAGE'),
         })
 
-    pct = round(float(total_obtenu) / float(total_max_tg) * 100, 2) if total_max_tg else 0
+    pct = round(float(total_obtenu) / float(total_max_tg) * 100, 1) if total_max_tg else 0
     return matieres_data, total_obtenu, total_max_tg, pct, total_s1, total_s2
 
 
@@ -150,6 +150,37 @@ def _get_classement_semestres(modele, s1_score, s2_score):
     rang_s1 = scores_s1.index(s1_score) + 1 if s1_score in scores_s1 else '-'
     rang_s2 = scores_s2.index(s2_score) + 1 if s2_score in scores_s2 else '-'
     return rang_s1, rang_s2
+
+
+def _calc_per_periode(modele, eleve):
+    """Calcule total et rang par période individuelle (pour TOTAUX/POURCENTAGE/PLACE)."""
+    from django.db.models import Sum
+
+    bms = list(modele.matieres.select_related('matiere'))
+    matiere_ids = [bm.matiere_id for bm in bms]
+    mc_ids = list(MatiereClasse.objects.filter(
+        matiere_id__in=matiere_ids, classe=modele.classe
+    ).values_list('pk', flat=True))
+
+    periodes = ['1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2']
+    result = {}
+    for periode in periodes:
+        total_p = Note.objects.filter(
+            eleve=eleve, matiere_classe_id__in=mc_ids, periode=periode
+        ).aggregate(t=Sum('valeur'))['t'] or Decimal('0')
+
+        scores = list(
+            Note.objects.filter(matiere_classe_id__in=mc_ids, periode=periode)
+            .values('eleve').annotate(t=Sum('valeur')).order_by('-t')
+            .values_list('t', flat=True)
+        )
+        rang = next(
+            (i + 1 for i, s in enumerate(scores)
+             if s is not None and abs(float(s) - float(total_p)) < 0.01),
+            '-'
+        )
+        result[periode] = {'total': total_p, 'rang': rang}
+    return result
 
 
 def _mention(pct):
@@ -197,6 +228,14 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     max_sem             = total_max / 2 if total_max else Decimal('0')
     pct_s1 = round(float(total_s1) / float(max_sem) * 100, 1) if max_sem else 0
     pct_s2 = round(float(total_s2) / float(max_sem) * 100, 1) if max_sem else 0
+
+    pp     = _calc_per_periode(modele, eleve)
+    max_p  = float(total_max) / 8   # maxima d'une période normale
+    max_e  = float(total_max) / 4   # maxima d'une période examen (× 2)
+
+    def _pct(tot, mx):
+        if not mx: return ''
+        return f"{round(float(tot) / mx * 100, 1)}%"
 
     buf = BytesIO()
     page_w, page_h = A4
@@ -466,31 +505,41 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     span_cmds.append(('SPAN', (10, current_row), (11, current_row)))
     current_row += 1
 
-    # ── Totaux (S1 | S2 | TG) ──────────────────────────────────────────────────
+    # ── Totaux par période + semestriels + TG ─────────────────────────────────
     tot_row = current_row
     tbl_data.append([
-        _b('TOTAUX'), '', '', '',
-        Paragraph(f"<b>{_note_str(total_s1)}</b>", ctr_b),   # col 4 — TOT S1
-        '', '', '',
-        Paragraph(f"<b>{_note_str(total_s2)}</b>", ctr_b),   # col 8 — TOT S2
-        Paragraph(f"<b>{_note_str(total_obtenu)}</b>", ctr_b),# col 9 — TG
+        _b('TOTAUX'),
+        _c(_note_str(pp['1P']['total'])),
+        _c(_note_str(pp['2P']['total'])),
+        _c(_note_str(pp['EXAM1']['total'])),
+        Paragraph(f"<b>{_note_str(total_s1)}</b>", ctr_b),
+        _c(_note_str(pp['3P']['total'])),
+        _c(_note_str(pp['4P']['total'])),
+        _c(_note_str(pp['EXAM2']['total'])),
+        Paragraph(f"<b>{_note_str(total_s2)}</b>", ctr_b),
+        Paragraph(f"<b>{_note_str(total_obtenu)}</b>", ctr_b),
         '', '',
     ])
     current_row += 1
 
-    # ── Pourcentage (S1 | S2 | Annuel) ─────────────────────────────────────────
+    # ── Pourcentage par période + semestriels + annuel ────────────────────────
     pct_row = current_row
     tbl_data.append([
-        _b('POURCENTAGE'), '', '', '',
-        _c(f"{pct_s1}%"),    # col 4 — %S1
-        '', '', '',
-        _c(f"{pct_s2}%"),    # col 8 — %S2
-        Paragraph(f"<b>{pct}%</b>", ctr_b),  # col 9 — %annuel
+        _b('POURCENTAGE'),
+        _c(_pct(pp['1P']['total'],    max_p)),
+        _c(_pct(pp['2P']['total'],    max_p)),
+        _c(_pct(pp['EXAM1']['total'], max_e)),
+        _c(f"{pct_s1}%"),
+        _c(_pct(pp['3P']['total'],    max_p)),
+        _c(_pct(pp['4P']['total'],    max_p)),
+        _c(_pct(pp['EXAM2']['total'], max_e)),
+        _c(f"{pct_s2}%"),
+        Paragraph(f"<b>{pct}%</b>", ctr_b),
         '', '',
     ])
     current_row += 1
 
-    # ── Mention ──────────────────────────────────────────────────────────────────
+    # ── Mention ───────────────────────────────────────────────────────────────
     mention_row = current_row
     tbl_data.append([
         _b('MENTION'), '', '', '', '', '', '', '', '',
@@ -499,14 +548,19 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     ])
     current_row += 1
 
-    # ── Place (S1 | S2 | Annuel) ─────────────────────────────────────────────────
+    # ── Place/Rang par période + semestriels + annuel ─────────────────────────
     place_row = current_row
     tbl_data.append([
-        _b('PLACE/NBRE ÉLÈVES'), '', '', '',
-        _c(f"{rang_s1}/{nb_eleves}"),    # col 4 — place S1
-        '', '', '',
-        _c(f"{rang_s2}/{nb_eleves}"),    # col 8 — place S2
-        Paragraph(f"<b>{classement}/{nb_eleves}</b>", ctr_b),  # col 9 — place annuelle
+        _b('PLACE/NBRE ÉLÈVES'),
+        _c(f"{pp['1P']['rang']}/{nb_eleves}"),
+        _c(f"{pp['2P']['rang']}/{nb_eleves}"),
+        _c(f"{pp['EXAM1']['rang']}/{nb_eleves}"),
+        _c(f"{rang_s1}/{nb_eleves}"),
+        _c(f"{pp['3P']['rang']}/{nb_eleves}"),
+        _c(f"{pp['4P']['rang']}/{nb_eleves}"),
+        _c(f"{pp['EXAM2']['rang']}/{nb_eleves}"),
+        _c(f"{rang_s2}/{nb_eleves}"),
+        Paragraph(f"<b>{classement}/{nb_eleves}</b>", ctr_b),
         '', '',
     ])
     current_row += 1
@@ -562,13 +616,10 @@ def build_bulletin_pdf_response(modele, eleve, school=None):
     ]
 
     # ── Fusions lignes de bilan ─────────────────────────────────────────────────
-    # TOTAUX et POURCENTAGE : label (col 0-3), vide S2 sub-periods (col 5-7)
+    # TOTAUX / POURCENTAGE / PLACE : colonne repêchage fusionnée (vide)
     for row in (tot_row, pct_row, place_row):
-        span_cmds.append(('SPAN', (0,  row), (3,  row)))   # label
-        span_cmds.append(('SPAN', (1,  row), (3,  row)))   # sous-périodes S1 vides
-        span_cmds.append(('SPAN', (5,  row), (7,  row)))   # sous-périodes S2 vides
-        span_cmds.append(('SPAN', (10, row), (11, row)))   # repêchage/sign
-    # MENTION : pleine largeur (0-8)
+        span_cmds.append(('SPAN', (10, row), (11, row)))
+    # MENTION : label sur toute la largeur (0-8)
     span_cmds.append(('SPAN', (0, mention_row), (8,  mention_row)))
     span_cmds.append(('SPAN', (10, mention_row), (11, mention_row)))
 
