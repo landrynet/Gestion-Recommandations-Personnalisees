@@ -31,10 +31,21 @@
   </div>
 </div>
 
+<!-- Recherche live -->
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <div class="input-group input-group-sm" style="max-width:380px">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input type="text" class="form-control" placeholder="Classe, section…"
+             data-live-search="tbl-classes" autocomplete="off">
+    </div>
+  </div>
+</div>
+
 <div class="card">
-  <div class="card-header">{{ classes.count }} classe{{ classes.count|pluralize }}</div>
+  <div class="card-header"><span data-live-count>{{ classes.count }}</span> classe{{ classes.count|pluralize }}</div>
   <div class="card-body p-0">
-    <table class="table table-hover">
+    <table class="table table-hover" id="tbl-classes">
       <thead><tr><th>Classe</th><th>Section</th><th>Année</th><th>Élèves</th><th class="text-end">Actions</th></tr></thead>
       <tbody>
         {% for c in classes %}
@@ -51,7 +62,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" class="text-center text-muted py-4">Aucune classe pour cette année</td></tr>
+        <tr data-empty><td colspan="5" class="text-center text-muted py-4">Aucune classe pour cette année</td></tr>
         {% endfor %}
       </tbody>
     </table>

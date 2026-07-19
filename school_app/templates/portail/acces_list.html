@@ -11,19 +11,26 @@
 {% if messages %}{% for msg in messages %}<div class="alert alert-{{ msg.tags }}">{{ msg }}</div>{% endfor %}{% endif %}
 
 <!-- Filtre classe -->
-<form method="get" class="mb-3 d-flex gap-2 align-items-center">
-  <select name="classe" class="form-select form-select-sm" style="max-width:220px" onchange="this.form.submit()">
-    <option value="">Toutes les classes</option>
-    {% for c in classes %}
-      <option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == classe_id %}selected{% endif %}>{{ c }}</option>
-    {% endfor %}
-  </select>
-</form>
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <form method="get" class="d-flex gap-2 align-items-center">
+    <select name="classe" class="form-select form-select-sm" style="max-width:220px" onchange="this.form.submit()">
+      <option value="">Toutes les classes</option>
+      {% for c in classes %}
+        <option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == classe_id %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  <div class="input-group input-group-sm" style="max-width:280px">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input type="text" class="form-control" placeholder="Nom d'élève…"
+           data-live-search="tbl-acces" autocomplete="off">
+  </div>
+</div>
 
 <div class="card">
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
+      <table class="table table-hover align-middle mb-0" id="tbl-acces">
         <thead class="table-light">
           <tr>
             <th>Élève</th>

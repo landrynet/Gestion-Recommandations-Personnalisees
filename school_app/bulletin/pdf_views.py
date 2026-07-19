@@ -146,15 +146,14 @@ def _styles():
 
 
 # ─── Vue principale ───────────────────────────────────────────────────────────
-@login_required
-def bulletin_eleve_pdf(request, pk, eleve_pk):
-    modele = get_object_or_404(ModeleBulletin, pk=pk)
-    if request.user.is_enseignant():
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden("Accès réservé au Préfet.")
+def build_bulletin_pdf_response(modele, eleve, school=None):
+    """Génère et retourne la réponse HTTP PDF du bulletin.
 
-    eleve  = get_object_or_404(Student, pk=eleve_pk)
-    school = SchoolInfo.get_info()
+    Appelable par toute vue authentifiée (back-office ET portail parents).
+    Si school est None, récupère SchoolInfo automatiquement.
+    """
+    if school is None:
+        school = SchoolInfo.get_info()
 
     matieres_data, total_obtenu, total_max, pct = _calc_eleve(modele, eleve)
     classement = _get_classement(modele, total_obtenu)
@@ -570,3 +569,14 @@ def bulletin_eleve_pdf(request, pk, eleve_pk):
     resp = HttpResponse(buf, content_type='application/pdf')
     resp['Content-Disposition'] = f'inline; filename="{filename}"'
     return resp
+
+
+@login_required
+def bulletin_eleve_pdf(request, pk, eleve_pk):
+    """Vue back-office : génère le PDF du bulletin d'un élève (préfet uniquement)."""
+    modele = get_object_or_404(ModeleBulletin, pk=pk)
+    if request.user.is_enseignant():
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Accès réservé au Préfet.")
+    eleve  = get_object_or_404(Student, pk=eleve_pk)
+    return build_bulletin_pdf_response(modele, eleve)

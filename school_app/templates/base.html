@@ -19,7 +19,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/static/css/style.css" rel="stylesheet">
   <style>
-    /* ── Barre de progression ── */
+    /* ── Barre de progression + recherche live ── */
     #sgn-bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:9999;
       background:linear-gradient(90deg,#2563eb,#60a5fa);
       border-radius:0 2px 2px 0;
@@ -351,6 +351,74 @@ document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
       delete btn.dataset.loading;
       Bar.done();
     }, 200);
+  });
+
+  // ── Recherche/filtre dynamique (live, sans rechargement) ─
+  document.addEventListener('DOMContentLoaded', () => {
+
+    // Moteur de recherche live — input[data-live-search="<table-id>"]
+    document.querySelectorAll('[data-live-search]').forEach(input => {
+      const tbl = document.getElementById(input.dataset.liveSearch);
+      if (!tbl) return;
+      const emptyRow = tbl.querySelector('tr[data-empty]');
+      input.addEventListener('input', () => {
+        const q = input.value.toLowerCase().trim();
+        let visible = 0;
+        tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
+          const match = !q || row.textContent.toLowerCase().includes(q);
+          row.style.display = match ? '' : 'none';
+          if (match) visible++;
+        });
+        // Ligne vide si aucun résultat
+        if (emptyRow) emptyRow.style.display = visible === 0 ? '' : 'none';
+        // Compteur dans .card-header
+        const card = tbl.closest('.card');
+        if (card) {
+          const counter = card.querySelector('[data-live-count]');
+          if (counter) counter.textContent = visible;
+        }
+      });
+    });
+
+    // Filtre select live — select[data-live-filter="<table-id>"][data-live-col="N"]
+    document.querySelectorAll('[data-live-filter]').forEach(sel => {
+      const tbl = document.getElementById(sel.dataset.liveFilter);
+      if (!tbl) return;
+      const col = parseInt(sel.dataset.liveCol || '0', 10);
+      sel.addEventListener('change', () => {
+        const q = sel.value.toLowerCase();
+        tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
+          const cell = row.cells[col];
+          const match = !q || (cell && cell.textContent.toLowerCase().includes(q));
+          row.style.display = match ? '' : 'none';
+        });
+      });
+    });
+
+    // Combinaison search + select : recalcul croisé
+    document.querySelectorAll('[data-live-search]').forEach(input => {
+      const tableId = input.dataset.liveSearch;
+      const siblingSelects = document.querySelectorAll(`[data-live-filter="${tableId}"]`);
+      if (!siblingSelects.length) return;
+      const applyAll = () => {
+        const q = input.value.toLowerCase().trim();
+        const tbl = document.getElementById(tableId);
+        if (!tbl) return;
+        siblingSelects.forEach(sel => {
+          const col = parseInt(sel.dataset.liveCol || '0', 10);
+          const sv = sel.value.toLowerCase();
+          tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
+            const matchQ  = !q  || row.textContent.toLowerCase().includes(q);
+            const cell = row.cells[col];
+            const matchS  = !sv || (cell && cell.textContent.toLowerCase().includes(sv));
+            row.style.display = (matchQ && matchS) ? '' : 'none';
+          });
+        });
+      };
+      input.addEventListener('input', applyAll);
+      siblingSelects.forEach(s => s.addEventListener('change', applyAll));
+    });
+
   });
 
   // ── Fetch / AJAX — barre pendant les requêtes ────

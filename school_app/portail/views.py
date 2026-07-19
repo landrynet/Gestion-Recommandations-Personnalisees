@@ -229,12 +229,43 @@ def portail_resultats(request, token):
 
     return render(request, 'portail/resultats.html', {
         'config': config, 'school': school, 'eleve': eleve,
-        'acces': acces,                          # ← corrige NoReverseMatch → 500
+        'acces': acces,
+        'modele': modele,                        # ← pour URL téléchargement bulletin
         'resultats': resultats,
         'resultat_annuel': resultat_annuel,
         'nb_eleves': eleve.classe.eleves.count(),
         'annee': annee,
     })
+
+
+def portail_bulletin_pdf(request, token):
+    """Portail parents : téléchargement du bulletin PDF via token (session requise)."""
+    acces = get_object_or_404(PortailAcces, token=token)
+    if request.session.get(SESSION_KEY) != str(acces.token):
+        return redirect('portail_scan', token=token)
+
+    eleve = acces.eleve
+    if not eleve.classe:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest("Élève sans classe.")
+
+    annee = eleve.classe.annee_scolaire
+    try:
+        modele = ModeleBulletin.objects.get(classe=eleve.classe, annee_scolaire=annee)
+    except ModeleBulletin.DoesNotExist:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest("Bulletin non configuré pour cette classe.")
+
+    # Vérifier que le résultat annuel est publié
+    annuel_publie = PublicationResultats.objects.filter(
+        classe=eleve.classe, annee_scolaire=annee, periode='ANNUEL', publie=True
+    ).exists()
+    if not annuel_publie:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest("Le bulletin annuel n'est pas encore publié.")
+
+    from bulletin.pdf_views import build_bulletin_pdf_response
+    return build_bulletin_pdf_response(modele, eleve)
 
 
 def portail_deconnexion(request, token):

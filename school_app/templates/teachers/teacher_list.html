@@ -13,7 +13,11 @@
       <div class="col-md-5">
         <div class="input-group input-group-sm">
           <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="text" name="q" class="form-control" placeholder="Nom, email..." value="{{ q }}">
+          <input type="text" name="q" class="form-control"
+                 placeholder="Nom, email..."
+                 value="{{ q }}"
+                 data-live-search="tbl-teachers"
+                 autocomplete="off">
         </div>
       </div>
       <div class="col-auto">
@@ -25,9 +29,9 @@
 </div>
 
 <div class="card">
-  <div class="card-header">{{ teachers.count }} enseignant{{ teachers.count|pluralize }}</div>
+  <div class="card-header"><span data-live-count>{{ teachers.count }}</span> enseignant{{ teachers.count|pluralize }}</div>
   <div class="card-body p-0">
-    <table class="table table-hover">
+    <table class="table table-hover" id="tbl-teachers">
       <thead>
         <tr><th>Nom complet</th><th>Email</th><th>Téléphone</th><th>Matières</th><th class="text-end">Actions</th></tr>
       </thead>
@@ -45,7 +49,7 @@
           </td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" class="text-center text-muted py-4">Aucun enseignant enregistré</td></tr>
+        <tr data-empty><td colspan="5" class="text-center text-muted py-4">Aucun enseignant enregistré</td></tr>
         {% endfor %}
       </tbody>
     </table>

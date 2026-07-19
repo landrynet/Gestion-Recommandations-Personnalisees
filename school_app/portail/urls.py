@@ -6,6 +6,7 @@ urlpatterns = [
     path('', views.portail_accueil, name='portail_accueil'),
     path('scan/<str:token>/', views.portail_scan, name='portail_scan'),
     path('resultats/<str:token>/', views.portail_resultats, name='portail_resultats'),
+    path('bulletin/<str:token>/', views.portail_bulletin_pdf, name='portail_bulletin_pdf'),
     path('deconnexion/<str:token>/', views.portail_deconnexion, name='portail_deconnexion'),
 
     # ── QR Code image ─────────────────────────────────────────────────────
