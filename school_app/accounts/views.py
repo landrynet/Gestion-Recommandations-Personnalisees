@@ -4,7 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 
 from .models import CustomUser, generate_temp_password
-from .forms import LoginForm, UserCreateForm, UserUpdateForm, ForcePasswordChangeForm
+from .forms import (
+    LoginForm, UserCreateForm, UserUpdateForm,
+    ForcePasswordChangeForm, ProfileForm, ChangePasswordForm,
+)
 from teachers.models import Teacher
 
 
@@ -35,7 +38,6 @@ def logout_view(request):
 
 @login_required
 def force_change_password(request):
-    """Obligatoire avant tout accès si must_change_password est True."""
     if not request.user.must_change_password:
         return redirect('dashboard')
 
@@ -44,7 +46,7 @@ def force_change_password(request):
         request.user.set_password(form.cleaned_data['new_password'])
         request.user.must_change_password = False
         request.user.save(update_fields=['password', 'must_change_password'])
-        update_session_auth_hash(request, request.user)   # Maintient la session active
+        update_session_auth_hash(request, request.user)
         messages.success(request, "Mot de passe mis à jour. Bienvenue !")
         return redirect('dashboard')
 
@@ -54,7 +56,6 @@ def force_change_password(request):
 # ─── Décorateurs de rôle ──────────────────────────────────────────────────────
 
 def prefet_required(view_func):
-    """Réservé au Préfet des études uniquement."""
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
@@ -68,7 +69,6 @@ def prefet_required(view_func):
 
 
 def enseignant_only(view_func):
-    """Réservé aux enseignants uniquement (bloque le préfet)."""
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
@@ -81,7 +81,63 @@ def enseignant_only(view_func):
     return wrapper
 
 
-# ─── Gestion des utilisateurs ─────────────────────────────────────────────────
+# ─── Profil utilisateur ───────────────────────────────────────────────────────
+
+@login_required
+def profile_view(request):
+    """Chaque utilisateur peut consulter et modifier son propre profil."""
+    user = request.user
+    profile_form = ProfileForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=user,
+    )
+    password_form = ChangePasswordForm(user=user, data=None)
+
+    # Chargement de l'onglet actif depuis le paramètre
+    active_tab = request.POST.get('_tab', 'info') or request.GET.get('tab', 'info')
+
+    if request.method == 'POST':
+        action = request.POST.get('_action', 'profile')
+
+        if action == 'profile':
+            active_tab = 'info'
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, "Profil mis à jour avec succès.")
+                return redirect('profile_view')
+            else:
+                messages.error(request, "Veuillez corriger les erreurs ci-dessous.")
+
+        elif action == 'password':
+            active_tab = 'password'
+            password_form = ChangePasswordForm(user=user, data=request.POST)
+            if password_form.is_valid():
+                user.set_password(password_form.cleaned_data['new_password'])
+                user.save(update_fields=['password'])
+                update_session_auth_hash(request, user)
+                messages.success(request, "Mot de passe modifié avec succès.")
+                return redirect('profile_view')
+            else:
+                messages.error(request, "Veuillez corriger les erreurs du formulaire.")
+
+    # Infos supplémentaires pour l'enseignant
+    teacher_profile = None
+    if user.is_enseignant():
+        try:
+            teacher_profile = user.teacher_profile
+        except Teacher.DoesNotExist:
+            pass
+
+    return render(request, 'accounts/profile.html', {
+        'profile_form':   profile_form,
+        'password_form':  password_form,
+        'teacher_profile': teacher_profile,
+        'active_tab':     active_tab,
+    })
+
+
+# ─── Gestion des utilisateurs (préfet) ───────────────────────────────────────
 
 @login_required
 @prefet_required
@@ -139,7 +195,6 @@ def user_delete(request, pk):
 @login_required
 @prefet_required
 def reset_user_password(request, pk):
-    """Le préfet réinitialise le mot de passe d'un utilisateur → nouveau mot de passe temporaire."""
     user = get_object_or_404(CustomUser, pk=pk)
     if request.method == 'POST':
         temp_password = generate_temp_password()

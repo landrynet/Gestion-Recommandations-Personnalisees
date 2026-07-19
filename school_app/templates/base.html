@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ school_info.pwa_nom_court|default:'SGS' }} – {{ school_info.nom }}{% endblock %}</title>
-  <!-- PWA Système -->
+  <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="{{ school_info.theme_color|default:'#1E293B' }}">
+  <meta name="theme-color" content="{{ school_info.theme_color|default:'#4D44B5' }}">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,53 +14,50 @@
   {% if school_info.logo %}
   <link rel="apple-touch-icon" href="{{ school_info.logo.url }}">
   <link rel="icon" href="{{ school_info.logo.url }}" type="image/png">
-  <meta name="msapplication-TileImage" content="{{ school_info.logo.url }}">
   {% else %}
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
-  <meta name="msapplication-TileImage" content="/static/icons/icon-144.png">
   {% endif %}
-  <meta name="msapplication-TileColor" content="{{ school_info.theme_color|default:'#1E293B' }}">
   <!-- Styles -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/static/css/style.css" rel="stylesheet">
-  <style>
-    /* ── Barre de progression + recherche live ── */
-    #sgn-bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:9999;
-      background:linear-gradient(90deg,#2563eb,#60a5fa);
-      border-radius:0 2px 2px 0;
-      box-shadow:0 0 8px rgba(37,99,235,.6);
-      transition:width .25s ease,opacity .3s ease;pointer-events:none;}
-    #sgn-bar.done{width:100%!important;opacity:0;transition:width .15s ease,opacity .5s .15s ease;}
-    /* ── Spinner bouton ── */
-    .btn-loading{position:relative;pointer-events:none;opacity:.8;}
-    .btn-loading .btn-spinner{
-      display:inline-block;width:1em;height:1em;
-      border:2px solid currentColor;border-top-color:transparent;
-      border-radius:50%;animation:btn-spin .6s linear infinite;
-      margin-right:.4em;vertical-align:middle;}
-    @keyframes btn-spin{to{transform:rotate(360deg);}}
-  </style>
+  {% block extra_css %}{% endblock %}
 </head>
 <body>
+
 {% if user.is_authenticated %}
 
 {% if not hide_sidebar %}
-<!-- ═══════════════ SIDEBAR PRÉFET ═══════════════ -->
+
+<!-- ═══ OVERLAY MOBILE ═══ -->
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SIDEBAR PRÉFET
+     ═══════════════════════════════════════════════ -->
 {% if user.is_prefet %}
 <div class="sidebar" id="sidebar">
+
   <div class="sidebar-header">
-    <div class="sidebar-logo"><i class="bi bi-mortarboard-fill"></i></div>
+    <div class="sidebar-logo">
+      {% if school_info.logo %}
+        <img src="{{ school_info.logo.url }}" alt="Logo">
+      {% else %}
+        <i class="bi bi-mortarboard-fill"></i>
+      {% endif %}
+    </div>
     <div class="sidebar-title">
-      <span class="fw-bold text-white small">{{ school_info.nom|truncatechars:22 }}</span>
-      <span class="text-muted" style="font-size:0.68rem">Préfet des études</span>
+      <span class="s-school">{{ school_info.nom|default:'SGN RDC'|truncatechars:26 }}</span>
+      <span class="s-role">Espace Préfet</span>
     </div>
   </div>
+
   <nav class="sidebar-nav">
     <div class="nav-section-label">Principal</div>
     <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-      <i class="bi bi-grid-1x2-fill"></i><span>Tableau de bord</span>
+      <i class="bi bi-grid-fill"></i><span>Tableau de bord</span>
     </a>
+
     <div class="nav-section-label">Gestion</div>
     <a href="{% url 'student_list' %}" class="nav-link {% if 'student' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-people-fill"></i><span>Élèves</span>
@@ -68,38 +65,15 @@
     <a href="{% url 'teacher_list' %}" class="nav-link {% if 'teacher' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-person-badge-fill"></i><span>Enseignants</span>
     </a>
-    <a href="{% url 'classe_list' %}" class="nav-link {% if 'classe' in request.resolver_match.url_name or 'section' in request.resolver_match.url_name or 'annee' in request.resolver_match.url_name or 'niveau' in request.resolver_match.url_name or 'promotion' in request.resolver_match.url_name or 'cloture' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-building-fill"></i><span>Classes & niveaux</span>
+    <a href="{% url 'classe_list' %}" class="nav-link {% if 'classe' in request.resolver_match.url_name or 'section' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-building-fill"></i><span>Classes</span>
     </a>
     <a href="{% url 'matiere_list' %}" class="nav-link {% if 'matiere' in request.resolver_match.url_name or 'affectation' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-book-fill"></i><span>Matières & affectations</span>
+      <i class="bi bi-book-fill"></i><span>Matières</span>
     </a>
-    <div class="nav-section-label">Bulletins</div>
-    <a href="{% url 'bulletin_list' %}" class="nav-link {% if 'bulletin' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-file-earmark-text-fill"></i><span>Modèles de bulletins</span>
-    </a>
-    <div class="nav-section-label">Rapports</div>
-    <a href="{% url 'rapport_eleves' %}" class="nav-link {% if request.resolver_match.url_name == 'rapport_eleves' %}active{% endif %}">
-      <i class="bi bi-people"></i><span>Rapport élèves</span>
-    </a>
-    <a href="{% url 'rapport_enseignants' %}" class="nav-link {% if request.resolver_match.url_name == 'rapport_enseignants' %}active{% endif %}">
-      <i class="bi bi-person-badge"></i><span>Rapport enseignants</span>
-    </a>
-    <a href="{% url 'rapport_resultats' %}" class="nav-link {% if request.resolver_match.url_name == 'rapport_resultats' %}active{% endif %}">
-      <i class="bi bi-trophy-fill"></i><span>Résultats & classement</span>
-    </a>
-    <div class="nav-section-label">Portail Parents</div>
-    <a href="{% url 'publication_list' %}" class="nav-link {% if 'publication' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-megaphone-fill"></i><span>Publication résultats</span>
-    </a>
-    <a href="{% url 'carte_list' %}" class="nav-link {% if 'carte' in request.resolver_match.url_name %}active{% endif %}">
-      <i class="bi bi-credit-card-2-front-fill"></i><span>Cartes d'élèves</span>
-    </a>
-    <a href="{% url 'portail_acces_list' %}" class="nav-link {% if request.resolver_match.url_name == 'portail_acces_list' %}active{% endif %}">
-      <i class="bi bi-shield-check"></i><span>Accès portail</span>
-    </a>
+
     <div class="nav-section-label">Années scolaires</div>
-    <a href="{% url 'annee_list' %}" class="nav-link {% if request.resolver_match.url_name == 'annee_list' or 'cloture' in request.resolver_match.url_name or 'promotion' in request.resolver_match.url_name %}active{% endif %}">
+    <a href="{% url 'annee_list' %}" class="nav-link {% if 'annee' in request.resolver_match.url_name or 'cloture' in request.resolver_match.url_name or 'promotion' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-calendar3-fill"></i><span>Gestion des années</span>
     </a>
     <a href="{% url 'niveau_list' %}" class="nav-link {% if 'niveau' in request.resolver_match.url_name %}active{% endif %}">
@@ -108,10 +82,50 @@
     <a href="{% url 'journal_operations' %}" class="nav-link {% if request.resolver_match.url_name == 'journal_operations' %}active{% endif %}">
       <i class="bi bi-journal-text"></i><span>Journal des opérations</span>
     </a>
+
+    <div class="nav-section-label">Bulletins & Rapports</div>
+    <a href="{% url 'bulletin_list' %}" class="nav-link {% if 'bulletin' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-file-earmark-text-fill"></i><span>Modèles de bulletins</span>
+    </a>
+    <a href="{% url 'rapport_eleves' %}" class="nav-link {% if 'rapport_eleves' == request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-file-bar-graph-fill"></i><span>Rapport élèves</span>
+    </a>
+    <a href="{% url 'rapport_enseignants' %}" class="nav-link {% if 'rapport_enseignants' == request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-file-person-fill"></i><span>Rapport enseignants</span>
+    </a>
+    <a href="{% url 'rapport_resultats' %}" class="nav-link {% if 'rapport_resultats' == request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-trophy-fill"></i><span>Résultats & classement</span>
+    </a>
+
+    <div class="nav-section-label">Portail Parents</div>
+    <a href="{% url 'publication_list' %}" class="nav-link {% if 'publication' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-megaphone-fill"></i><span>Publication résultats</span>
+    </a>
+    <a href="{% url 'carte_list' %}" class="nav-link {% if 'carte' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-credit-card-2-front-fill"></i><span>Cartes d'élèves</span>
+    </a>
+    <a href="{% url 'portail_acces_list' %}" class="nav-link {% if request.resolver_match.url_name == 'portail_acces_list' %}active{% endif %}">
+      <i class="bi bi-shield-check-fill"></i><span>Accès portail</span>
+    </a>
   </nav>
+
   <div class="sidebar-footer">
-    <a href="{% url 'portail_config' %}" class="nav-link {% if request.resolver_match.url_name == 'portail_config' %}active{% endif %}">
-      <i class="bi bi-globe"></i><span>Config portail</span>
+    <!-- User card -->
+    <div class="sidebar-user-card">
+      <div class="suc-avatar">
+        {% if user.photo_profil %}
+          <img src="{{ user.photo_profil.url }}" alt="{{ user.get_full_name }}">
+        {% else %}
+          {{ user.get_initiales }}
+        {% endif %}
+      </div>
+      <div class="overflow-hidden">
+        <div class="suc-name">{{ user.get_full_name|default:user.username|truncatechars:20 }}</div>
+        <div class="suc-role">Préfet des études</div>
+      </div>
+    </div>
+    <a href="{% url 'profile_view' %}" class="nav-link {% if request.resolver_match.url_name == 'profile_view' %}active{% endif %}">
+      <i class="bi bi-person-circle"></i><span>Mon profil</span>
     </a>
     <a href="{% url 'settings_view' %}" class="nav-link {% if 'settings' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-gear-fill"></i><span>Paramètres</span>
@@ -122,81 +136,150 @@
   </div>
 </div>
 
-<!-- ═══════════════ SIDEBAR ENSEIGNANT ═══════════════ -->
+<!-- ═══════════════════════════════════════════════
+     SIDEBAR ENSEIGNANT
+     ═══════════════════════════════════════════════ -->
 {% else %}
 <div class="sidebar" id="sidebar">
+
   <div class="sidebar-header">
-    <div class="sidebar-logo"><i class="bi bi-person-badge-fill"></i></div>
+    <div class="sidebar-logo">
+      {% if school_info.logo %}
+        <img src="{{ school_info.logo.url }}" alt="Logo">
+      {% else %}
+        <i class="bi bi-mortarboard-fill"></i>
+      {% endif %}
+    </div>
     <div class="sidebar-title">
-      <span class="fw-bold text-white small">{{ user.get_full_name|default:user.username|truncatechars:22 }}</span>
-      <span class="text-muted" style="font-size:0.68rem">Enseignant</span>
+      <span class="s-school">{{ school_info.nom|default:'SGN RDC'|truncatechars:26 }}</span>
+      <span class="s-role">Espace Enseignant</span>
     </div>
   </div>
+
   <nav class="sidebar-nav">
     <div class="nav-section-label">Mon espace</div>
     <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-      <i class="bi bi-grid-1x2-fill"></i><span>Mon tableau de bord</span>
+      <i class="bi bi-grid-fill"></i><span>Mon tableau de bord</span>
     </a>
+
     <div class="nav-section-label">Notes</div>
     <a href="{% url 'saisie_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'saisie_notes' %}active{% endif %}">
       <i class="bi bi-pencil-square"></i><span>Saisie des notes</span>
     </a>
     <a href="{% url 'consulter_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'consulter_notes' %}active{% endif %}">
-      <i class="bi bi-table"></i><span>Consulter mes notes</span>
+      <i class="bi bi-table"></i><span>Mes notes saisies</span>
     </a>
   </nav>
+
   <div class="sidebar-footer">
+    <div class="sidebar-user-card">
+      <div class="suc-avatar">
+        {% if user.photo_profil %}
+          <img src="{{ user.photo_profil.url }}" alt="{{ user.get_full_name }}">
+        {% else %}
+          {{ user.get_initiales }}
+        {% endif %}
+      </div>
+      <div class="overflow-hidden">
+        <div class="suc-name">{{ user.get_full_name|default:user.username|truncatechars:20 }}</div>
+        <div class="suc-role">Enseignant</div>
+      </div>
+    </div>
+    <a href="{% url 'profile_view' %}" class="nav-link {% if request.resolver_match.url_name == 'profile_view' %}active{% endif %}">
+      <i class="bi bi-person-circle"></i><span>Mon profil</span>
+    </a>
     <a href="{% url 'logout' %}" class="nav-link text-danger-soft">
       <i class="bi bi-box-arrow-right"></i><span>Déconnexion</span>
     </a>
   </div>
 </div>
 {% endif %}
-<!-- ═══════════ FIN SIDEBARS ═══════════ -->
-{% endif %}
 
-<!-- ═══════════════ MAIN ═══════════════ -->
+{% endif %}{# end not hide_sidebar #}
+
+<!-- ═══════════════════════════════════════════════
+     MAIN CONTENT
+     ═══════════════════════════════════════════════ -->
 {% if hide_sidebar %}
 <div class="d-flex align-items-center justify-content-center min-vh-100">
-  <main>
-    {% block centered_content %}{% endblock %}
-  </main>
+  <main>{% block centered_content %}{% endblock %}</main>
 </div>
 {% else %}
 <div class="main-content" id="main-content">
 
-  <!-- Topbar -->
+  <!-- ─── Topbar ─── -->
   <header class="topbar">
-    <button class="btn btn-link text-secondary p-0 me-2" id="sidebar-toggle" style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+
+    <!-- Toggle sidebar -->
+    <button class="topbar-toggle" id="sidebar-toggle" aria-label="Menu">
       <i class="bi bi-list fs-5"></i>
     </button>
 
-    <nav aria-label="breadcrumb" class="flex-grow-1">
-      <ol class="breadcrumb mb-0 small">
-        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Accueil</a></li>
-        {% block breadcrumb %}{% endblock %}
-      </ol>
-    </nav>
-
-    <!-- Horloge -->
-    <div class="topbar-clock d-none d-md-flex flex-column align-items-end me-3">
-      <span id="topbar-time" class="clock-time fw-bold" style="font-size:0.9rem;font-variant-numeric:tabular-nums;color:var(--color-text)"></span>
-      <span id="topbar-date" class="clock-date" style="font-size:0.68rem;color:var(--color-muted)"></span>
+    <!-- Search (desktop) -->
+    <div class="topbar-search d-none d-lg-block">
+      <i class="bi bi-search ts-icon"></i>
+      <input type="text" placeholder="Rechercher…" id="topbar-search-input" autocomplete="off">
     </div>
 
-    <!-- Actions barre -->
+    <div class="topbar-spacer"></div>
+
+    <!-- Clock (desktop) -->
+    <div class="topbar-clock d-none d-xl-flex flex-column align-items-end me-2">
+      <span id="topbar-time" class="clock-time"></span>
+      <span id="topbar-date" class="clock-date"></span>
+    </div>
+
+    <!-- Actions -->
     <div class="topbar-actions">
-      <!-- Toggle dark/light -->
-      <button class="btn-theme-toggle" id="theme-toggle" title="Changer le thème">
+      <!-- Dark/light toggle -->
+      <button class="topbar-icon-btn" id="theme-toggle" title="Changer le thème">
         <i class="bi bi-moon-fill" id="theme-icon"></i>
       </button>
 
-      <!-- Utilisateur -->
-      <div class="topbar-user ms-1">
-        <span class="badge {% if user.is_prefet %}bg-primary{% else %}bg-success{% endif %}">
-          {{ user.get_role_display }}
-        </span>
-        <span class="fw-semibold small ms-1 d-none d-sm-inline">{{ user.get_full_name|default:user.username }}</span>
+      <!-- Notifications placeholder -->
+      <button class="topbar-icon-btn" title="Notifications">
+        <i class="bi bi-bell-fill"></i>
+      </button>
+
+      <!-- User dropdown -->
+      <div class="topbar-user-wrap">
+        <button class="topbar-user-btn" id="user-dropdown-toggle" aria-expanded="false">
+          <div class="tu-avatar">
+            {% if user.photo_profil %}
+              <img src="{{ user.photo_profil.url }}" alt="{{ user.get_full_name }}">
+            {% else %}
+              {{ user.get_initiales }}
+            {% endif %}
+          </div>
+          <div class="d-flex flex-column align-items-start">
+            <span class="tu-name">{{ user.get_full_name|default:user.username }}</span>
+            <span class="tu-role">{{ user.get_role_display }}</span>
+          </div>
+          <i class="bi bi-chevron-down" style="font-size:.65rem; color:var(--color-muted);"></i>
+        </button>
+
+        <!-- Dropdown -->
+        <div class="topbar-dropdown" id="user-dropdown">
+          <div class="topbar-dropdown-header">
+            <div class="dd-avatar">
+              {% if user.photo_profil %}
+                <img src="{{ user.photo_profil.url }}" alt="">
+              {% else %}
+                {{ user.get_initiales }}
+              {% endif %}
+            </div>
+            <div>
+              <div style="font-weight:600;font-size:.85rem;">{{ user.get_full_name|default:user.username }}</div>
+              <div style="font-size:.72rem;color:var(--color-muted);">{{ user.email }}</div>
+            </div>
+          </div>
+          <a href="{% url 'profile_view' %}"><i class="bi bi-person-circle"></i>Mon profil</a>
+          {% if user.is_prefet %}
+          <a href="{% url 'settings_view' %}"><i class="bi bi-gear-fill"></i>Paramètres</a>
+          {% endif %}
+          <div class="topbar-dropdown-divider"></div>
+          <a href="{% url 'logout' %}" class="text-danger"><i class="bi bi-box-arrow-right"></i>Déconnexion</a>
+        </div>
       </div>
     </div>
   </header>
@@ -204,7 +287,7 @@
   <!-- Alerts -->
   <div class="px-4 pt-3">
     {% for msg in messages %}
-    <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show py-2" role="alert">
+    <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show py-2" role="alert" style="border-radius:10px;font-size:.875rem;">
       <i class="bi bi-{% if msg.tags == 'success' %}check-circle{% elif msg.tags == 'error' or msg.tags == 'danger' %}exclamation-circle{% else %}info-circle{% endif %}-fill me-2"></i>
       {{ msg }}
       <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -213,7 +296,7 @@
   </div>
 
   <!-- Page content -->
-  <main class="page-content px-4 pb-5">
+  <main class="page-content">
     {% block content %}{% endblock %}
   </main>
 </div>
@@ -223,247 +306,179 @@
 {% block auth_content %}{% endblock %}
 {% endif %}
 
+<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ── Sidebar toggle ──
-const toggle = document.getElementById('sidebar-toggle');
-if (toggle) {
+/* ── Sidebar toggle (desktop collapse / mobile overlay) ── */
+(function () {
+  const sidebar    = document.getElementById('sidebar');
+  const main       = document.getElementById('main-content');
+  const toggle     = document.getElementById('sidebar-toggle');
+  const overlay    = document.getElementById('sidebar-overlay');
+  if (!toggle || !sidebar) return;
+
+  const MOBILE_BP = 991;
+
+  function isMobile() { return window.innerWidth <= MOBILE_BP; }
+
   toggle.addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('collapsed');
-    document.getElementById('main-content').classList.toggle('expanded');
-  });
-}
-
-// ── Auto-dismiss alerts ──
-document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
-  const bsAlert = bootstrap.Alert.getOrCreateInstance(a);
-  if (bsAlert) bsAlert.close();
-}, 5000));
-
-// ── Dark / Light mode ──
-(function() {
-  const html        = document.documentElement;
-  const btn         = document.getElementById('theme-toggle');
-  const icon        = document.getElementById('theme-icon');
-  const KEY         = 'sgn_theme';
-
-  function applyTheme(theme) {
-    html.setAttribute('data-theme', theme);
-    if (icon) {
-      icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+    if (isMobile()) {
+      sidebar.classList.toggle('mobile-open');
+      overlay.classList.toggle('active');
+    } else {
+      sidebar.classList.toggle('collapsed');
+      if (main) main.classList.toggle('expanded');
     }
-    if (btn) btn.title = theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre';
-  }
+  });
 
-  // Charger la préférence sauvegardée
-  const saved = localStorage.getItem(KEY) || 'light';
-  applyTheme(saved);
-
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const current = html.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      applyTheme(next);
-      localStorage.setItem(KEY, next);
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('active');
     });
   }
+
+  // Close on resize
+  window.addEventListener('resize', () => {
+    if (!isMobile()) {
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('active');
+    }
+  });
 })();
 
-// ── Horloge topbar ──
-(function() {
-  const JOURS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-  const MOIS  = ['janvier','février','mars','avril','mai','juin',
-                 'juillet','août','septembre','octobre','novembre','décembre'];
-  const elTime = document.getElementById('topbar-time');
-  const elDate = document.getElementById('topbar-date');
-  if (!elTime) return;
+/* ── User dropdown ── */
+(function () {
+  const btn = document.getElementById('user-dropdown-toggle');
+  const dd  = document.getElementById('user-dropdown');
+  if (!btn || !dd) return;
 
-  function tick() {
-    const now = new Date();
-    const hh  = String(now.getHours()).padStart(2,'0');
-    const mm  = String(now.getMinutes()).padStart(2,'0');
-    const ss  = String(now.getSeconds()).padStart(2,'0');
-    elTime.textContent = `${hh}:${mm}:${ss}`;
-    if (elDate) {
-      elDate.textContent = `${JOURS[now.getDay()]} ${now.getDate()} ${MOIS[now.getMonth()]} ${now.getFullYear()}`;
-    }
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dd.classList.toggle('open');
+    btn.setAttribute('aria-expanded', dd.classList.contains('open'));
+  });
+  document.addEventListener('click', () => {
+    dd.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  });
+})();
+
+/* ── Auto-dismiss alerts ── */
+document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
+  const inst = bootstrap.Alert.getOrCreateInstance(a);
+  if (inst) inst.close();
+}, 5000));
+
+/* ── Dark / Light mode ── */
+(function () {
+  const html = document.documentElement;
+  const btn  = document.getElementById('theme-toggle');
+  const icon = document.getElementById('theme-icon');
+  const KEY  = 'sgn_theme';
+
+  function applyTheme(t) {
+    html.setAttribute('data-theme', t);
+    if (icon) icon.className = t === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+    if (btn)  btn.title = t === 'dark' ? 'Mode clair' : 'Mode sombre';
   }
-  tick();
-  setInterval(tick, 1000);
+  applyTheme(localStorage.getItem(KEY) || 'light');
+  if (btn) btn.addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem(KEY, next);
+  });
+})();
+
+/* ── Horloge topbar ── */
+(function () {
+  const JOURS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const MOIS  = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const elT = document.getElementById('topbar-time');
+  const elD = document.getElementById('topbar-date');
+  if (!elT) return;
+  function tick() {
+    const n = new Date();
+    elT.textContent = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`;
+    if (elD) elD.textContent = `${JOURS[n.getDay()]} ${n.getDate()} ${MOIS[n.getMonth()]} ${n.getFullYear()}`;
+  }
+  tick(); setInterval(tick, 1000);
+})();
+
+/* ── Topbar live search (recherche globale dans la page courante) ── */
+(function () {
+  const input = document.getElementById('topbar-search-input');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    const q = input.value.toLowerCase().trim();
+    if (!q) { document.querySelectorAll('table tbody tr').forEach(r => r.style.display = ''); return; }
+    document.querySelectorAll('table tbody tr').forEach(r => {
+      r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
 })();
 </script>
 {% block extra_js %}{% endblock %}
 <script>
-/* ════════════════════════════════════════════════════
-   SGN — Système de chargement intelligent
-   Basé uniquement sur les événements réels du navigateur.
-   Aucun setTimeout / délai artificiel.
-   ════════════════════════════════════════════════════ */
+/* ══ Barre de chargement ══════════════════════════════════════════ */
 (function () {
   'use strict';
-
-  // ── Barre de progression ──────────────────────────
   const Bar = (() => {
-    const el = document.createElement('div');
-    el.id = 'sgn-bar';
-    document.body.prepend(el);
-
+    const el = document.createElement('div'); el.id = 'sgn-bar'; document.body.prepend(el);
     let pct = 0, rafId = null, active = false;
-
-    function set(p) {
-      pct = Math.min(p, 99);
-      el.style.width = pct + '%';
-      el.style.opacity = '1';
-      el.classList.remove('done');
-    }
-
-    function trickle() {
-      // Progression naturelle décroissante — jamais 100 % avant la vraie fin
-      const inc = pct < 20 ? 10 : pct < 50 ? 5 : pct < 80 ? 2 : 0.5;
-      set(pct + inc);
-      rafId = requestAnimationFrame(() => setTimeout(trickle, 300));
-    }
-
+    function set(p) { pct = Math.min(p,99); el.style.width = pct+'%'; el.style.opacity='1'; el.classList.remove('done'); }
+    function trickle() { set(pct + (pct<20?10:pct<50?5:pct<80?2:.5)); rafId = requestAnimationFrame(()=>setTimeout(trickle,300)); }
     return {
-      start() {
-        if (active) return;
-        active = true; pct = 0;
-        set(3);
-        trickle();
-      },
-      done() {
-        if (!active) return;
-        active = false;
-        cancelAnimationFrame(rafId);
-        el.style.width = '100%';
-        el.style.opacity = '1';
-        el.classList.add('done');
-        // Réinitialiser après la transition CSS
-        el.addEventListener('transitionend', () => { pct = 0; el.style.width = '0'; }, { once: true });
-      }
+      start() { if(active)return; active=true; pct=0; set(3); trickle(); },
+      done()  { if(!active)return; active=false; cancelAnimationFrame(rafId); el.style.width='100%'; el.style.opacity='1'; el.classList.add('done'); el.addEventListener('transitionend',()=>{pct=0;el.style.width='0';},{once:true}); }
     };
   })();
-
-  // ── Démarrer à chaque navigation (clic sur lien) ──
   document.addEventListener('click', (e) => {
     const a = e.target.closest('a[href]');
     if (!a) return;
     const href = a.getAttribute('href');
-    if (!href || href.startsWith('#') || href.startsWith('javascript') ||
-        a.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (!href || href.startsWith('#') || href.startsWith('javascript') || a.target==='_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
     Bar.start();
   });
-
-  // ── Arrêter quand la page est prête ──────────────
-  window.addEventListener('pageshow', () => Bar.done());
-  window.addEventListener('load',     () => Bar.done());
-
-  // ── Boutons intelligents — formulaires ───────────
+  window.addEventListener('pageshow', ()=>Bar.done());
+  window.addEventListener('load',     ()=>Bar.done());
   document.addEventListener('submit', (e) => {
     const form = e.target;
-    const btn = form.querySelector('[type="submit"]:not([data-no-loading])');
+    const btn  = form.querySelector('[type="submit"]:not([data-no-loading])');
     if (!btn || btn.dataset.loading) return;
-
-    Bar.start();
-    btn.dataset.loading = '1';
-    const orig = btn.innerHTML;
-    btn.disabled = true;
+    Bar.start(); btn.dataset.loading='1';
+    const orig = btn.innerHTML; btn.disabled=true;
     btn.innerHTML = `<span class="btn-spinner"></span>${btn.textContent.trim()}`;
-
-    // Réactiver si retour arrière (ex: validation HTML5)
-    setTimeout(() => {
-      if (!form.checkValidity || form.checkValidity()) return;
-      btn.disabled = false;
-      btn.innerHTML = orig;
-      delete btn.dataset.loading;
-      Bar.done();
-    }, 200);
+    setTimeout(()=>{ if(!form.checkValidity||form.checkValidity())return; btn.disabled=false; btn.innerHTML=orig; delete btn.dataset.loading; Bar.done(); },200);
   });
-
-  // ── Recherche/filtre dynamique (live, sans rechargement) ─
+  /* Live search / filter */
   document.addEventListener('DOMContentLoaded', () => {
-
-    // Moteur de recherche live — input[data-live-search="<table-id>"]
     document.querySelectorAll('[data-live-search]').forEach(input => {
-      const tbl = document.getElementById(input.dataset.liveSearch);
-      if (!tbl) return;
+      const tbl = document.getElementById(input.dataset.liveSearch); if(!tbl)return;
       const emptyRow = tbl.querySelector('tr[data-empty]');
       input.addEventListener('input', () => {
-        const q = input.value.toLowerCase().trim();
-        let visible = 0;
+        const q = input.value.toLowerCase().trim(); let visible = 0;
         tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
           const match = !q || row.textContent.toLowerCase().includes(q);
-          row.style.display = match ? '' : 'none';
-          if (match) visible++;
+          row.style.display = match ? '' : 'none'; if(match) visible++;
         });
-        // Ligne vide si aucun résultat
-        if (emptyRow) emptyRow.style.display = visible === 0 ? '' : 'none';
-        // Compteur dans .card-header
+        if(emptyRow) emptyRow.style.display = visible===0 ? '' : 'none';
         const card = tbl.closest('.card');
-        if (card) {
-          const counter = card.querySelector('[data-live-count]');
-          if (counter) counter.textContent = visible;
-        }
+        if(card){ const counter = card.querySelector('[data-live-count]'); if(counter) counter.textContent=visible; }
       });
     });
-
-    // Filtre select live — select[data-live-filter="<table-id>"][data-live-col="N"]
     document.querySelectorAll('[data-live-filter]').forEach(sel => {
-      const tbl = document.getElementById(sel.dataset.liveFilter);
-      if (!tbl) return;
-      const col = parseInt(sel.dataset.liveCol || '0', 10);
+      const tbl = document.getElementById(sel.dataset.liveFilter); if(!tbl)return;
+      const col = parseInt(sel.dataset.liveCol||'0',10);
       sel.addEventListener('change', () => {
         const q = sel.value.toLowerCase();
         tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
-          const cell = row.cells[col];
-          const match = !q || (cell && cell.textContent.toLowerCase().includes(q));
-          row.style.display = match ? '' : 'none';
+          const cell=row.cells[col]; const match=!q||(cell&&cell.textContent.toLowerCase().includes(q));
+          row.style.display=match?'':'none';
         });
       });
     });
-
-    // Combinaison search + select : recalcul croisé
-    document.querySelectorAll('[data-live-search]').forEach(input => {
-      const tableId = input.dataset.liveSearch;
-      const siblingSelects = document.querySelectorAll(`[data-live-filter="${tableId}"]`);
-      if (!siblingSelects.length) return;
-      const applyAll = () => {
-        const q = input.value.toLowerCase().trim();
-        const tbl = document.getElementById(tableId);
-        if (!tbl) return;
-        siblingSelects.forEach(sel => {
-          const col = parseInt(sel.dataset.liveCol || '0', 10);
-          const sv = sel.value.toLowerCase();
-          tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
-            const matchQ  = !q  || row.textContent.toLowerCase().includes(q);
-            const cell = row.cells[col];
-            const matchS  = !sv || (cell && cell.textContent.toLowerCase().includes(sv));
-            row.style.display = (matchQ && matchS) ? '' : 'none';
-          });
-        });
-      };
-      input.addEventListener('input', applyAll);
-      siblingSelects.forEach(s => s.addEventListener('change', applyAll));
-    });
-
   });
-
-  // ── Fetch / AJAX — barre pendant les requêtes ────
-  const origFetch = window.fetch;
-  let fetchCount = 0;
-  window.fetch = function (...args) {
-    fetchCount++;
-    if (fetchCount === 1) Bar.start();
-    return origFetch.apply(this, args).finally(() => {
-      fetchCount = Math.max(0, fetchCount - 1);
-      if (fetchCount === 0) Bar.done();
-    });
-  };
-
-  // ── Service Worker ────────────────────────────────
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-  }
 })();
 </script>
 </body>

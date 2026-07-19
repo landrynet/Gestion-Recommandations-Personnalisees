@@ -14,16 +14,22 @@ class TeacherForm(forms.Form):
                               widget=forms.EmailInput(attrs={'class': 'form-control'}))
     telephone = forms.CharField(label='Téléphone', max_length=20, required=False,
                                  widget=forms.TextInput(attrs={'class': 'form-control'}))
+    photo_profil = forms.ImageField(
+        label='Photo de profil', required=False,
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
+        help_text="Photo affichée dans la liste des enseignants et dans son profil."
+    )
 
     def __init__(self, *args, instance=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance = instance
         if instance:
-            self.fields['first_name'].initial = instance.user.first_name
-            self.fields['last_name'].initial = instance.user.last_name
-            self.fields['username'].initial = instance.user.username
-            self.fields['email'].initial = instance.user.email
-            self.fields['telephone'].initial = instance.telephone
+            self.fields['first_name'].initial  = instance.user.first_name
+            self.fields['last_name'].initial   = instance.user.last_name
+            self.fields['username'].initial    = instance.user.username
+            self.fields['email'].initial       = instance.user.email
+            self.fields['telephone'].initial   = instance.telephone
+            self.fields['photo_profil'].initial = instance.user.photo_profil
 
     def clean_username(self):
         username = self.cleaned_data['username']
@@ -41,18 +47,18 @@ class TeacherForm(forms.Form):
         """
         data = self.cleaned_data
         if self.instance:
-            # Mise à jour — pas de changement de mot de passe ici
             user = self.instance.user
             user.first_name = data['first_name']
-            user.last_name = data['last_name']
-            user.username = data['username']
-            user.email = data['email']
+            user.last_name  = data['last_name']
+            user.username   = data['username']
+            user.email      = data['email']
+            if data.get('photo_profil'):
+                user.photo_profil = data['photo_profil']
             user.save()
             self.instance.telephone = data['telephone']
             self.instance.save()
             return self.instance, None
         else:
-            # Création — mot de passe temporaire auto-généré
             temp_password = generate_temp_password()
             user = CustomUser.objects.create_user(
                 username=data['username'],
@@ -62,7 +68,9 @@ class TeacherForm(forms.Form):
                 password=temp_password,
                 role='enseignant',
             )
+            if data.get('photo_profil'):
+                user.photo_profil = data['photo_profil']
             user.must_change_password = True
-            user.save(update_fields=['must_change_password'])
+            user.save(update_fields=['must_change_password', 'photo_profil'])
             teacher = Teacher.objects.create(user=user, telephone=data['telephone'])
             return teacher, temp_password

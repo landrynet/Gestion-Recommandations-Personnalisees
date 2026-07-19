@@ -23,7 +23,7 @@ def teacher_list(request):
 @login_required
 @prefet_required
 def teacher_create(request):
-    form = TeacherForm(request.POST or None)
+    form = TeacherForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
         teacher, temp_password = form.save()
         return render(request, 'teachers/teacher_created.html', {
@@ -37,7 +37,7 @@ def teacher_create(request):
 @prefet_required
 def teacher_update(request, pk):
     teacher = get_object_or_404(Teacher, pk=pk)
-    form = TeacherForm(request.POST or None, instance=teacher)
+    form = TeacherForm(request.POST or None, request.FILES or None, instance=teacher)
     if request.method == 'POST' and form.is_valid():
         form.save()
         messages.success(request, "Enseignant modifié avec succès.")

@@ -104,12 +104,12 @@ def mk_classe(nom, section, niveau=None):
     return Classe.objects.create(nom=nom, section=section, annee_scolaire=annee, niveau=niveau)
 
 classes = {
-    '4SC':  mk_classe('A', sec_sc, niv_4),
-    '5SC':  mk_classe('A', sec_sc, niv_5),
-    '6SC':  mk_classe('A', sec_sc, niv_6),
-    '4LIT': mk_classe('A', sec_lit, niv_4),
-    '5LIT': mk_classe('A', sec_lit, niv_5),
-    '4CG':  mk_classe('A', sec_comm, niv_4),
+    '4SC':  mk_classe('4A', sec_sc, niv_4),
+    '5SC':  mk_classe('5A', sec_sc, niv_5),
+    '6SC':  mk_classe('6A', sec_sc, niv_6),
+    '4LIT': mk_classe('4A', sec_lit, niv_4),
+    '5LIT': mk_classe('5A', sec_lit, niv_5),
+    '4CG':  mk_classe('4A', sec_comm, niv_4),
 }
 print(f"🏛️  {len(classes)} classes créées (avec niveaux)")
 

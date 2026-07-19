@@ -2,54 +2,94 @@
 {% block title %}Enseignants{% endblock %}
 {% block breadcrumb %}<li class="breadcrumb-item active">Enseignants</li>{% endblock %}
 {% block content %}
+
 <div class="page-header">
-  <h1 class="page-title"><i class="bi bi-person-badge-fill text-primary me-2"></i>Enseignants</h1>
-  <a href="{% url 'teacher_create' %}" class="btn btn-primary"><i class="bi bi-person-plus me-1"></i>Ajouter</a>
+  <div>
+    <h1 class="page-title">Enseignants</h1>
+    <p class="page-subtitle">Gestion du corps enseignant</p>
+  </div>
+  <a href="{% url 'teacher_create' %}" class="btn btn-primary">
+    <i class="bi bi-person-plus-fill"></i>Ajouter un enseignant
+  </a>
 </div>
 
+<!-- Filtre -->
 <div class="card mb-3">
   <div class="card-body py-2">
-    <form method="get" class="row g-2 align-items-end">
+    <form method="get" class="row g-2 align-items-center">
       <div class="col-md-5">
         <div class="input-group input-group-sm">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input type="text" name="q" class="form-control"
-                 placeholder="Nom, email..."
+          <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search text-muted"></i></span>
+          <input type="text" name="q" class="form-control border-start-0 ps-0"
+                 placeholder="Rechercher par nom ou email…"
                  value="{{ q }}"
                  data-live-search="tbl-teachers"
                  autocomplete="off">
         </div>
       </div>
-      <div class="col-auto">
+      <div class="col-auto d-flex gap-2">
         <button type="submit" class="btn btn-primary btn-sm">Filtrer</button>
-        <a href="{% url 'teacher_list' %}" class="btn btn-outline-secondary btn-sm ms-1">Réinitialiser</a>
+        {% if q %}<a href="{% url 'teacher_list' %}" class="btn btn-outline-secondary btn-sm">Réinitialiser</a>{% endif %}
       </div>
     </form>
   </div>
 </div>
 
+<!-- Tableau -->
 <div class="card">
-  <div class="card-header"><span data-live-count>{{ teachers.count }}</span> enseignant{{ teachers.count|pluralize }}</div>
+  <div class="card-header">
+    <span><i class="bi bi-person-badge-fill me-2 text-primary"></i><span data-live-count>{{ teachers.count }}</span> enseignant{{ teachers.count|pluralize }}</span>
+  </div>
   <div class="card-body p-0">
     <table class="table table-hover" id="tbl-teachers">
       <thead>
-        <tr><th>Nom complet</th><th>Email</th><th>Téléphone</th><th>Matières</th><th class="text-end">Actions</th></tr>
+        <tr>
+          <th>Enseignant</th>
+          <th>Email</th>
+          <th>Téléphone</th>
+          <th class="text-center">Matières</th>
+          <th class="text-end">Actions</th>
+        </tr>
       </thead>
       <tbody>
         {% for t in teachers %}
         <tr>
-          <td class="fw-medium">{{ t.nom_complet }}</td>
-          <td class="text-muted">{{ t.email|default:"—" }}</td>
-          <td class="text-muted">{{ t.telephone|default:"—" }}</td>
-          <td><span class="badge bg-primary rounded-pill">{{ t.matieres_enseignees.count }}</span></td>
+          <td>
+            <div class="d-flex align-items-center gap-3">
+              <div class="t-avatar">
+                {% if t.user.photo_profil %}
+                  <img src="{{ t.user.photo_profil.url }}" alt="{{ t.nom_complet }}">
+                {% else %}
+                  {{ t.user.get_initiales }}
+                {% endif %}
+              </div>
+              <div>
+                <div class="fw-semibold" style="font-size:.875rem;">{{ t.nom_complet }}</div>
+                <div class="text-muted" style="font-size:.75rem;">{{ t.user.username }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="text-muted" style="font-size:.855rem;">{{ t.email|default:"—" }}</td>
+          <td class="text-muted" style="font-size:.855rem;">{{ t.telephone|default:"—" }}</td>
+          <td class="text-center">
+            <span class="badge rounded-pill" style="background:var(--color-primary-soft);color:var(--color-primary);font-size:.78rem;">
+              {{ t.matieres_enseignees.count }}
+            </span>
+          </td>
           <td class="text-end">
-            <a href="{% url 'teacher_detail' t.pk %}" class="btn btn-sm btn-outline-secondary me-1"><i class="bi bi-eye"></i></a>
-            <a href="{% url 'teacher_update' t.pk %}" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
-            <a href="{% url 'teacher_delete' t.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+            <a href="{% url 'teacher_detail' t.pk %}" class="btn btn-xs btn-outline-secondary" title="Voir"><i class="bi bi-eye"></i></a>
+            <a href="{% url 'teacher_update' t.pk %}" class="btn btn-xs btn-outline-primary ms-1" title="Modifier"><i class="bi bi-pencil"></i></a>
+            <a href="{% url 'teacher_delete' t.pk %}" class="btn btn-xs btn-outline-danger ms-1" title="Supprimer"><i class="bi bi-trash"></i></a>
           </td>
         </tr>
         {% empty %}
-        <tr data-empty><td colspan="5" class="text-center text-muted py-4">Aucun enseignant enregistré</td></tr>
+        <tr data-empty>
+          <td colspan="5" class="text-center py-5">
+            <div class="mb-2" style="font-size:2rem;opacity:.3;"><i class="bi bi-person-badge"></i></div>
+            <div class="text-muted">Aucun enseignant enregistré</div>
+            <a href="{% url 'teacher_create' %}" class="btn btn-sm btn-primary mt-2">Ajouter le premier enseignant</a>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
