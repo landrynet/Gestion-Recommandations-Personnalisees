@@ -45,6 +45,7 @@
 <body>
 {% if user.is_authenticated %}
 
+{% if not hide_sidebar %}
 <!-- ═══════════════ SIDEBAR PRÉFET ═══════════════ -->
 {% if user.is_prefet %}
 <div class="sidebar" id="sidebar">
@@ -141,8 +142,17 @@
   </div>
 </div>
 {% endif %}
+<!-- ═══════════ FIN SIDEBARS ═══════════ -->
+{% endif %}
 
 <!-- ═══════════════ MAIN ═══════════════ -->
+{% if hide_sidebar %}
+<div class="d-flex align-items-center justify-content-center min-vh-100">
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% else %}
 <div class="main-content" id="main-content">
 
   <!-- Topbar -->
@@ -197,6 +207,7 @@
     {% block content %}{% endblock %}
   </main>
 </div>
+{% endif %}
 
 {% else %}
 {% block auth_content %}{% endblock %}

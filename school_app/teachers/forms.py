@@ -1,5 +1,5 @@
 from django import forms
-from accounts.models import CustomUser
+from accounts.models import CustomUser, generate_temp_password
 from .models import Teacher
 
 
@@ -14,9 +14,6 @@ class TeacherForm(forms.Form):
                               widget=forms.EmailInput(attrs={'class': 'form-control'}))
     telephone = forms.CharField(label='Téléphone', max_length=20, required=False,
                                  widget=forms.TextInput(attrs={'class': 'form-control'}))
-    password = forms.CharField(label='Mot de passe', required=False,
-                                widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-                                help_text="Laisser vide pour ne pas changer")
 
     def __init__(self, *args, instance=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -27,7 +24,6 @@ class TeacherForm(forms.Form):
             self.fields['username'].initial = instance.user.username
             self.fields['email'].initial = instance.user.email
             self.fields['telephone'].initial = instance.telephone
-            self.fields['password'].required = False
 
     def clean_username(self):
         username = self.cleaned_data['username']
@@ -39,27 +35,34 @@ class TeacherForm(forms.Form):
         return username
 
     def save(self):
+        """
+        Retourne (teacher, temp_password) à la création,
+        ou (teacher, None) lors d'une mise à jour.
+        """
         data = self.cleaned_data
         if self.instance:
+            # Mise à jour — pas de changement de mot de passe ici
             user = self.instance.user
             user.first_name = data['first_name']
             user.last_name = data['last_name']
             user.username = data['username']
             user.email = data['email']
-            if data['password']:
-                user.set_password(data['password'])
             user.save()
             self.instance.telephone = data['telephone']
             self.instance.save()
-            return self.instance
+            return self.instance, None
         else:
+            # Création — mot de passe temporaire auto-généré
+            temp_password = generate_temp_password()
             user = CustomUser.objects.create_user(
                 username=data['username'],
                 first_name=data['first_name'],
                 last_name=data['last_name'],
                 email=data['email'],
-                password=data['password'] or 'django1234',
-                role='enseignant'
+                password=temp_password,
+                role='enseignant',
             )
+            user.must_change_password = True
+            user.save(update_fields=['must_change_password'])
             teacher = Teacher.objects.create(user=user, telephone=data['telephone'])
-            return teacher
+            return teacher, temp_password

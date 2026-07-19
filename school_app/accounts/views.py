@@ -48,7 +48,7 @@ def force_change_password(request):
         messages.success(request, "Mot de passe mis à jour. Bienvenue !")
         return redirect('dashboard')
 
-    return render(request, 'accounts/force_password_change.html', {'form': form})
+    return render(request, 'accounts/force_password_change.html', {'form': form, 'hide_sidebar': True})
 
 
 # ─── Décorateurs de rôle ──────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ def user_create(request):
         if user.role == 'enseignant':
             Teacher.objects.get_or_create(user=user)
         return render(request, 'accounts/user_created.html', {
-            'user': user,
+            'target_user': user,
             'temp_password': temp_password,
             'is_reset': False,
         })
@@ -147,7 +147,7 @@ def reset_user_password(request, pk):
         user.must_change_password = True
         user.save(update_fields=['password', 'must_change_password'])
         return render(request, 'accounts/user_created.html', {
-            'user': user,
+            'target_user': user,
             'temp_password': temp_password,
             'is_reset': True,
         })

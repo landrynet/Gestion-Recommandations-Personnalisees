@@ -25,9 +25,11 @@ def teacher_list(request):
 def teacher_create(request):
     form = TeacherForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
-        form.save()
-        messages.success(request, "Enseignant créé avec succès.")
-        return redirect('teacher_list')
+        teacher, temp_password = form.save()
+        return render(request, 'teachers/teacher_created.html', {
+            'teacher': teacher,
+            'temp_password': temp_password,
+        })
     return render(request, 'teachers/teacher_form.html', {'form': form, 'titre': 'Ajouter un enseignant'})
 
 

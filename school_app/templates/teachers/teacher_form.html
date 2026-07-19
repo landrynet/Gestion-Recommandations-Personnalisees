@@ -34,10 +34,15 @@
           <label class="form-label">Téléphone</label>
           {{ form.telephone }}
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Mot de passe {% if obj %}(laisser vide = inchangé){% endif %}</label>
-          {{ form.password }}
+        {% if not obj %}
+        <div class="col-12">
+          <div class="alert alert-info py-2 small mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            Un mot de passe temporaire sera généré automatiquement et affiché à la fin de la création.
+            L'enseignant devra le changer à sa première connexion.
+          </div>
         </div>
+        {% endif %}
       </div>
       {% if form.errors %}
       <div class="alert alert-danger mt-3 py-2 small">
