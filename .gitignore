@@ -46,3 +46,4 @@ Thumbs.db
 # Variables d'environnement
 .env
 .env.*
+school_app/db.sqlite3
