@@ -668,6 +668,7 @@ def import_notes_excel(request):
 @require_POST
 def import_notes_preview(request):
     """Étape 2 : confirmation et enregistrement des notes importées."""
+    from django.db import transaction
     session_data = request.session.get('import_preview')
     mc_id        = request.session.get('import_mc_id')
 
@@ -687,23 +688,34 @@ def import_notes_preview(request):
         except Exception:
             return redirect('saisie_notes')
 
+    # Pré-charger tous les élèves concernés pour éviter les requêtes N+1
+    eleve_ids = [row['eleve_id'] for row in session_data if row.get('has_changes')]
+    eleves_map = {e.pk: e for e in Student.objects.filter(pk__in=eleve_ids)}
+
     nb_saved = 0
-    for row in session_data:
-        if not row['has_changes']:
-            continue
-        eleve = get_object_or_404(Student, pk=row['eleve_id'])
-        for change in row['changes']:
-            if not change['changed']:
-                continue
-            new_val = change['apres']
-            if new_val is None:
-                Note.objects.filter(eleve=eleve, matiere_classe=mc, periode=change['periode']).delete()
-            else:
-                Note.objects.update_or_create(
-                    eleve=eleve, matiere_classe=mc, periode=change['periode'],
-                    defaults={'valeur': Decimal(new_val)}
-                )
-            nb_saved += 1
+    try:
+        with transaction.atomic():
+            for row in session_data:
+                if not row['has_changes']:
+                    continue
+                eleve = eleves_map.get(row['eleve_id'])
+                if eleve is None:
+                    continue
+                for change in row['changes']:
+                    if not change['changed']:
+                        continue
+                    new_val = change['apres']
+                    if new_val is None:
+                        Note.objects.filter(eleve=eleve, matiere_classe=mc, periode=change['periode']).delete()
+                    else:
+                        Note.objects.update_or_create(
+                            eleve=eleve, matiere_classe=mc, periode=change['periode'],
+                            defaults={'valeur': Decimal(new_val)}
+                        )
+                    nb_saved += 1
+    except Exception as e:
+        messages.error(request, "Une erreur est survenue lors de l'importation. Aucune note n'a été modifiée.")
+        return redirect('import_notes_excel')
 
     # Nettoyer la session
     del request.session['import_preview']

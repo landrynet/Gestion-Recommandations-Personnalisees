@@ -1,11 +1,16 @@
+import logging
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 from students.models import Student
 from teachers.models import Teacher
 from classes.models import Classe, AnneeScolaire
 from subjects.models import Matiere, MatiereClasse
 from bulletin.models import ModeleBulletin
 from grades.models import Note
+
+logger = logging.getLogger('sgn')
 
 
 @login_required
@@ -64,20 +69,27 @@ def dashboard(request):
                 matiere_classe__enseignant=teacher
             ).select_related('eleve', 'matiere_classe__matiere', 'matiere_classe__classe').order_by('-id')[:10]
 
-            # Avancement par matière/classe
+            # Avancement par matière/classe — annotations SQL (zéro N+1)
+            avancement_qs = MatiereClasse.objects.filter(
+                enseignant=teacher
+            ).select_related(
+                'matiere', 'classe', 'classe__section', 'classe__annee_scolaire'
+            ).annotate(
+                notes_count=Count('notes', distinct=True),
+                nb_eleves_count=Count('classe__eleves', distinct=True),
+            )[:8]
+
             avancement = []
             periodes_totales = 7  # 1P, 2P, EXAM1, 3P, 4P, EXAM2, REPECHAGE
-            for aff in mes_affectations[:8]:
-                nb_eleves_classe = Student.objects.filter(classe=aff.classe).count()
-                notes_saisies = Note.objects.filter(matiere_classe=aff).count()
-                attendues = nb_eleves_classe * periodes_totales
-                pct = round(notes_saisies / attendues * 100) if attendues > 0 else 0
+            for aff in avancement_qs:
+                attendues = aff.nb_eleves_count * periodes_totales
+                pct = round(aff.notes_count / attendues * 100) if attendues > 0 else 0
                 avancement.append({
                     'affectation': aff,
-                    'notes_saisies': notes_saisies,
+                    'notes_saisies': aff.notes_count,
                     'attendues': attendues,
                     'pct': pct,
-                    'nb_eleves': nb_eleves_classe,
+                    'nb_eleves': aff.nb_eleves_count,
                 })
 
         except Exception:

@@ -29,6 +29,10 @@ class Student(models.Model):
         ordering = ['nom', 'postnom', 'prenom']
         verbose_name = "Élève"
         verbose_name_plural = "Élèves"
+        indexes = [
+            models.Index(fields=['classe'], name='student_classe_idx'),
+            models.Index(fields=['nom', 'postnom'], name='student_nom_idx'),
+        ]
 
     def __str__(self):
         return self.nom_complet

@@ -27,6 +27,11 @@ class Note(models.Model):
     class Meta:
         unique_together = ['eleve', 'matiere_classe', 'periode']
         verbose_name = "Note"
+        indexes = [
+            models.Index(fields=['eleve', 'periode'], name='note_eleve_periode_idx'),
+            models.Index(fields=['matiere_classe', 'periode'], name='note_mc_periode_idx'),
+            models.Index(fields=['eleve'], name='note_eleve_idx'),
+        ]
 
     def __str__(self):
         return f"{self.eleve} — {self.matiere_classe.matiere} — {self.periode}: {self.valeur}"
