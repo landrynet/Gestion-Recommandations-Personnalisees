@@ -1,2 +1,3 @@
 - [Django SGN setup](django-sgn-setup.md) — app Django dans school_app/, lancée via uv run, port 8000, proxy routé vers "/"
 - [Portail parents](portail-parents.md) — nouvelles apps portail + carte_eleve, flux QR → activation → code → résultats
+- [Corrections sécurité UI](security-ui-fixes.md) — sidebar, rôles, mot de passe enseignants corrigés
