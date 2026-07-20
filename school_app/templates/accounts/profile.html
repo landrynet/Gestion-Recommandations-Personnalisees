@@ -126,6 +126,22 @@
   border: 3px solid var(--color-border);
   display: block; margin: 0 auto 12px;
 }
+
+/* Indicateur force mot de passe */
+.pwd-strength-bar {
+  height: 4px; border-radius: 2px; margin-top: 6px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.pwd-strength-bar .bar-fill {
+  height: 100%; border-radius: 2px;
+  transition: width .3s, background .3s;
+}
+.pwd-rules { font-size: .75rem; margin-top: 6px; }
+.pwd-rules li { list-style: none; color: var(--color-muted); }
+.pwd-rules li.ok { color: #22c55e; }
+.pwd-rules li.ok::before { content: '✓ '; }
+.pwd-rules li:not(.ok)::before { content: '· '; }
 </style>
 {% endblock %}
 
@@ -133,7 +149,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Mon profil</h1>
-    <p class="page-subtitle">Gérez vos informations personnelles et votre sécurité</p>
+    <p class="page-subtitle">Gérez vos informations personnelles</p>
   </div>
 </div>
 
@@ -166,7 +182,6 @@
               {% csrf_token %}
               <input type="hidden" name="_action" value="profile">
               <input type="hidden" name="_tab" value="info">
-              <!-- dummy fields needed by form -->
               <input type="hidden" name="first_name" value="{{ user.first_name }}">
               <input type="hidden" name="last_name" value="{{ user.last_name }}">
               <input type="hidden" name="email" value="{{ user.email }}">
@@ -231,7 +246,7 @@
             <i class="bi bi-person-fill"></i>Informations
           </a>
           <a class="tab-item {% if active_tab == 'password' %}active{% endif %}" href="?tab=password">
-            <i class="bi bi-lock-fill"></i>Sécurité
+            <i class="bi bi-lock-fill"></i>Changer le mot de passe
           </a>
         </div>
       </div>
@@ -308,57 +323,76 @@
         </form>
       </div>
 
-      <!-- ── Tab : Sécurité ── -->
+      <!-- ── Tab : Changer le mot de passe ── -->
       <div class="card-body pt-0 {% if active_tab != 'password' %}d-none{% endif %}" id="tabPassword">
+
+        {% if active_tab == 'password' and password_form.errors %}
+        <div class="alert alert-danger py-2 mb-3">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <strong>Erreurs :</strong>
+          <ul class="mb-0 mt-1 ps-3">
+            {% for field in password_form %}
+              {% for e in field.errors %}<li>{{ field.label }} : {{ e }}</li>{% endfor %}
+            {% endfor %}
+            {% for e in password_form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
         <div class="mb-4 p-3 rounded-3" style="background: var(--color-primary-soft); border: 1px solid rgba(77,68,181,.2);">
           <div class="d-flex align-items-start gap-3">
-            <i class="bi bi-shield-fill-check" style="font-size:1.4rem; color:var(--color-primary); flex-shrink:0;"></i>
-            <div>
-              <div class="fw-semibold mb-1" style="font-size:.875rem;">Sécurité du compte</div>
-              <div class="text-muted" style="font-size:.82rem;">
-                Utilisez un mot de passe fort d'au moins 10 caractères avec des majuscules, chiffres et caractères spéciaux.
-                Ne partagez jamais votre mot de passe.
-              </div>
+            <i class="bi bi-info-circle-fill" style="font-size:1.2rem; color:var(--color-primary); flex-shrink:0; margin-top:2px;"></i>
+            <div style="font-size:.82rem; color:var(--color-muted);">
+              Votre nouveau mot de passe doit contenir au moins <strong>10 caractères</strong>,
+              une <strong>majuscule</strong>, une <strong>minuscule</strong>,
+              un <strong>chiffre</strong> et un <strong>caractère spécial</strong> (!@#$%…).
             </div>
           </div>
         </div>
 
-        <form method="post" novalidate>
+        <form method="post" novalidate id="pwdForm">
           {% csrf_token %}
           <input type="hidden" name="_action" value="password">
           <input type="hidden" name="_tab" value="password">
 
           <div class="d-flex flex-column gap-3">
             <div>
-              <label class="form-label">Mot de passe actuel</label>
+              <label class="form-label">Mot de passe actuel <span class="text-danger">*</span></label>
               {{ password_form.old_password }}
               {% if password_form.old_password.errors %}
-                <div class="text-danger small mt-1">{{ password_form.old_password.errors.0 }}</div>
+                <div class="text-danger small mt-1"><i class="bi bi-x-circle me-1"></i>{{ password_form.old_password.errors.0 }}</div>
               {% endif %}
             </div>
             <div>
-              <label class="form-label">Nouveau mot de passe</label>
+              <label class="form-label">Nouveau mot de passe <span class="text-danger">*</span></label>
               {{ password_form.new_password }}
               {% if password_form.new_password.errors %}
-                <div class="text-danger small mt-1">{{ password_form.new_password.errors.0 }}</div>
+                <div class="text-danger small mt-1"><i class="bi bi-x-circle me-1"></i>{{ password_form.new_password.errors.0 }}</div>
               {% endif %}
-              <div class="mt-2" style="font-size:.75rem; color:var(--color-muted);">
-                <i class="bi bi-info-circle me-1"></i>Min. 10 caractères, 1 majuscule, 1 chiffre, 1 caractère spécial
-              </div>
+              <!-- Indicateur de force -->
+              <div class="pwd-strength-bar mt-2"><div class="bar-fill" id="pwdBar" style="width:0%;background:#e2e8f0;"></div></div>
+              <ul class="pwd-rules ps-0 mt-1" id="pwdRules">
+                <li id="r-len">Au moins 10 caractères</li>
+                <li id="r-upper">Au moins une majuscule</li>
+                <li id="r-lower">Au moins une minuscule</li>
+                <li id="r-digit">Au moins un chiffre</li>
+                <li id="r-special">Au moins un caractère spécial (!@#$%…)</li>
+              </ul>
             </div>
             <div>
-              <label class="form-label">Confirmer le nouveau mot de passe</label>
+              <label class="form-label">Confirmer le nouveau mot de passe <span class="text-danger">*</span></label>
               {{ password_form.confirm_password }}
               {% if password_form.confirm_password.errors %}
-                <div class="text-danger small mt-1">{{ password_form.confirm_password.errors.0 }}</div>
+                <div class="text-danger small mt-1"><i class="bi bi-x-circle me-1"></i>{{ password_form.confirm_password.errors.0 }}</div>
               {% endif %}
             </div>
           </div>
 
           <div class="d-flex gap-2 mt-4">
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-lock-fill"></i>Changer le mot de passe
+              <i class="bi bi-lock-fill"></i>Enregistrer le nouveau mot de passe
             </button>
+            <a href="?tab=info" class="btn btn-outline-secondary">Annuler</a>
           </div>
         </form>
       </div>
@@ -436,7 +470,6 @@ document.getElementById('id_photo_profil_quick').addEventListener('change', func
       if (fileInput.files[0]) showPreview(fileInput.files[0]);
     });
   }
-
   zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.style.borderColor = 'var(--color-primary)'; });
   zone.addEventListener('dragleave', ()  => { zone.style.borderColor = ''; });
   zone.addEventListener('drop', (e)     => {
@@ -445,13 +478,30 @@ document.getElementById('id_photo_profil_quick').addEventListener('change', func
   });
 })();
 
-/* Tab switching via URL parameter */
+/* Indicateur de force du mot de passe */
 (function() {
-  const tabs = document.querySelectorAll('.tab-item');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
-      // Tabs use href with ?tab=... — let browser handle it
+  const input = document.querySelector('#pwdForm [name="new_password"]');
+  if (!input) return;
+  const bar   = document.getElementById('pwdBar');
+  const rules = {
+    'r-len':     (p) => p.length >= 10,
+    'r-upper':   (p) => /[A-Z]/.test(p),
+    'r-lower':   (p) => /[a-z]/.test(p),
+    'r-digit':   (p) => /\d/.test(p),
+    'r-special': (p) => /[!@#$%^&*()\-_=+{};:,<.>?]/.test(p),
+  };
+  const colors = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e'];
+
+  input.addEventListener('input', function() {
+    const p = this.value;
+    let score = 0;
+    Object.entries(rules).forEach(([id, fn]) => {
+      const li = document.getElementById(id);
+      if (fn(p)) { li.classList.add('ok'); score++; }
+      else        { li.classList.remove('ok'); }
     });
+    bar.style.width   = (score * 20) + '%';
+    bar.style.background = colors[score - 1] || '#e2e8f0';
   });
 })();
 </script>

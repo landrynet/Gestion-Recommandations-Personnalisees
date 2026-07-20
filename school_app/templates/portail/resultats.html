@@ -211,7 +211,7 @@
                   <td>{{ n.matiere }}</td>
                   <td class="text-center text-muted">{{ n.maxima }}</td>
                   <td class="text-center fw-bold">
-                    {% if n.note is not None %}{{ n.note }}{% else %}<span class="note-absent">—</span>{% endif %}
+                    {% if n.note is not None %}{{ n.note|floatformat:"-2" }}{% else %}<span class="note-absent">—</span>{% endif %}
                   </td>
                   <td class="text-center text-muted" style="font-size:.8rem">
                     {% if n.note is not None %}{% widthratio n.note n.maxima 100 %}%{% else %}<span class="note-absent">—</span>{% endif %}

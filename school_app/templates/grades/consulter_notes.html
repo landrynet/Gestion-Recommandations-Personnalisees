@@ -86,7 +86,7 @@
           <td class="text-center">
             {% if row.notes|get_item:code is not None %}
             <span class="fw-bold {% if row.notes|get_item:code < selected_mc.matiere.maxima|divisibleby:2 %}text-danger{% else %}text-success{% endif %}">
-              {{ row.notes|get_item:code }}
+              {{ row.notes|get_item:code|floatformat:"-2" }}
             </span>
             {% else %}
             <span class="text-muted">—</span>
