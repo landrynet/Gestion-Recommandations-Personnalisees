@@ -60,18 +60,31 @@ def _calc_eleve(modele, eleve):
     total_s1     = Decimal('0')
     total_s2     = Decimal('0')
 
-    for bm in modele.matieres.select_related('matiere').order_by('matiere__maxima', 'ordre'):
+    bms = list(modele.matieres.select_related('matiere').order_by('matiere__maxima', 'ordre'))
+    matiere_ids = [bm.matiere_id for bm in bms]
+
+    # Fetch all MatiereClasse in one query instead of one per matière
+    mc_map = {mc.matiere_id: mc for mc in MatiereClasse.objects.filter(
+        matiere_id__in=matiere_ids, classe=modele.classe
+    )}
+
+    # Fetch all notes for this student in one query instead of 7 per matière
+    notes_index = {}
+    if mc_map:
+        for n in Note.objects.filter(
+            eleve=eleve,
+            matiere_classe_id__in=[mc.pk for mc in mc_map.values()]
+        ).values('matiere_classe_id', 'periode', 'valeur'):
+            notes_index[(n['matiere_classe_id'], n['periode'])] = n['valeur']
+
+    for bm in bms:
         mat = bm.matiere
+        mc = mc_map.get(mat.id)
         notes_dict = {}
-        try:
-            mc = MatiereClasse.objects.get(matiere=mat, classe=modele.classe)
+        if mc:
             for p in periodes:
-                try:
-                    n = Note.objects.get(eleve=eleve, matiere_classe=mc, periode=p)
-                    notes_dict[p] = n.valeur
-                except Note.DoesNotExist:
-                    notes_dict[p] = None
-        except Exception:
+                notes_dict[p] = notes_index.get((mc.pk, p))
+        else:
             for p in periodes:
                 notes_dict[p] = None
 
@@ -115,14 +128,18 @@ def _calc_eleve(modele, eleve):
 
 
 def _get_classement(modele, eleve_score):
-    """Classement annuel (hors repêchage) — identique à la formule bulletin."""
+    """Classement annuel (hors repêchage) — une seule requête d'agrégation."""
     from django.db.models import Sum
-    scores = []
-    for e in Student.objects.filter(classe=modele.classe):
-        total = Note.objects.filter(
-            eleve=e, matiere_classe__classe=modele.classe
-        ).exclude(periode='REPECHAGE').aggregate(total=Sum('valeur'))['total'] or Decimal('0')
-        scores.append(total)
+    scores = list(
+        Note.objects.filter(
+            eleve__classe=modele.classe,
+            matiere_classe__classe=modele.classe,
+        ).exclude(periode='REPECHAGE')
+        .values('eleve')
+        .annotate(total=Sum('valeur'))
+        .order_by('-total')
+        .values_list('total', flat=True)
+    )
     scores.sort(reverse=True)
     try:
         return scores.index(eleve_score) + 1
@@ -131,22 +148,21 @@ def _get_classement(modele, eleve_score):
 
 
 def _get_classement_semestres(modele, s1_score, s2_score):
-    """Retourne (rang_s1, rang_s2) dans la classe en une seule passe."""
+    """Retourne (rang_s1, rang_s2) dans la classe — deux requêtes d'agrégation."""
     from django.db.models import Sum
-    scores_s1, scores_s2 = [], []
-    for e in Student.objects.filter(classe=modele.classe):
-        t1 = Note.objects.filter(
-            eleve=e, matiere_classe__classe=modele.classe,
-            periode__in=['1P', '2P', 'EXAM1']
-        ).aggregate(t=Sum('valeur'))['t'] or Decimal('0')
-        t2 = Note.objects.filter(
-            eleve=e, matiere_classe__classe=modele.classe,
-            periode__in=['3P', '4P', 'EXAM2']
-        ).aggregate(t=Sum('valeur'))['t'] or Decimal('0')
-        scores_s1.append(t1)
-        scores_s2.append(t2)
-    scores_s1.sort(reverse=True)
-    scores_s2.sort(reverse=True)
+    base_qs = Note.objects.filter(
+        eleve__classe=modele.classe,
+        matiere_classe__classe=modele.classe,
+    ).values('eleve')
+
+    scores_s1 = list(
+        base_qs.filter(periode__in=['1P', '2P', 'EXAM1'])
+        .annotate(t=Sum('valeur')).order_by('-t').values_list('t', flat=True)
+    )
+    scores_s2 = list(
+        base_qs.filter(periode__in=['3P', '4P', 'EXAM2'])
+        .annotate(t=Sum('valeur')).order_by('-t').values_list('t', flat=True)
+    )
     rang_s1 = scores_s1.index(s1_score) + 1 if s1_score in scores_s1 else '-'
     rang_s2 = scores_s2.index(s2_score) + 1 if s2_score in scores_s2 else '-'
     return rang_s1, rang_s2

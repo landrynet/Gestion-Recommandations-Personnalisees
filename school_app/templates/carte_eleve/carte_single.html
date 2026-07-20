@@ -162,7 +162,28 @@
   <a href="javascript:history.back()" class="btn-back">
     <i class="bi bi-arrow-left me-1"></i>Retour
   </a>
-  <span style="color:#64748b;font-size:.85rem">{{ titre }} — {{ eleves_data|length }} carte(s)</span>
+  <span style="color:#64748b;font-size:.85rem">
+    {{ titre }}
+    {% if nb_pages and nb_pages > 1 %}
+      — Lot {{ page }}/{{ nb_pages }} ({{ eleves_data|length }} cartes)
+    {% else %}
+      — {{ eleves_data|length }} carte(s)
+    {% endif %}
+  </span>
+  {% if nb_pages and nb_pages > 1 %}
+    <div style="display:flex;gap:.5rem;margin-left:auto;align-items:center">
+      {% if page_precedente %}
+        <a href="?page={{ page_precedente }}" class="btn-back" style="padding:.4rem .9rem">
+          <i class="bi bi-chevron-left"></i> Lot précédent
+        </a>
+      {% endif %}
+      {% if page_suivante %}
+        <a href="?page={{ page_suivante }}" class="btn-back" style="padding:.4rem .9rem">
+          Lot suivant <i class="bi bi-chevron-right"></i>
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 
 <div class="cards-grid">

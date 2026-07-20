@@ -76,10 +76,28 @@ def cartes_classe(request, classe_id):
     classe = get_object_or_404(Classe, pk=classe_id)
     school = SchoolInfo.get_info()
     config = PortailConfig.get_config()
-    eleves = Student.objects.filter(classe=classe).order_by('nom', 'postnom')
-    eleves_data = [{'eleve': e, 'qr_b64': _qr_base64(request, e)} for e in eleves]
+
+    # Paginer par lots de 20 pour éviter de tout charger en mémoire
+    LOT = 20
+    try:
+        page = max(1, int(request.GET.get('page', 1)))
+    except (ValueError, TypeError):
+        page = 1
+    offset = (page - 1) * LOT
+
+    eleves_qs = Student.objects.filter(classe=classe).order_by('nom', 'postnom')
+    total = eleves_qs.count()
+    eleves_lot = eleves_qs[offset:offset + LOT]
+
+    eleves_data = [{'eleve': e, 'qr_b64': _qr_base64(request, e)} for e in eleves_lot]
+
+    nb_pages = (total + LOT - 1) // LOT
     return render(request, 'carte_eleve/carte_single.html', {
         'eleves_data': eleves_data, 'school': school, 'config': config,
         'annee': classe.annee_scolaire, 'mode': 'print',
         'titre': f"Cartes — {classe}",
+        'page': page, 'nb_pages': nb_pages, 'total': total,
+        'page_suivante': page + 1 if page < nb_pages else None,
+        'page_precedente': page - 1 if page > 1 else None,
+        'classe_id': classe_id,
     })

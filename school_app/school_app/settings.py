@@ -20,6 +20,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.replit.dev',
     'https://*.spock.replit.dev',
     'https://*.replit.app',
+    'https://*.pythonanywhere.com',
     'http://localhost:8000',
     'http://localhost:8008',
 ]
