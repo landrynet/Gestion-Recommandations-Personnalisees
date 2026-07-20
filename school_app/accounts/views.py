@@ -4,6 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from notifications.service import notify
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.contrib import messages
 
 from .models import CustomUser, generate_temp_password
@@ -165,6 +166,7 @@ def profile_view(request):
 
 # ─── Gestion des utilisateurs (préfet) ───────────────────────────────────────
 
+@ensure_csrf_cookie
 @login_required
 @prefet_required
 def user_list(request):

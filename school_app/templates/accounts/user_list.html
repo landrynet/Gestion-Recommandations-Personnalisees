@@ -67,15 +67,15 @@
   </div>
 </div>
 
+{# Token CSRF global — lu par le JS des modals #}
+<input type="hidden" id="global-csrf" value="{{ csrf_token }}">
+
 <!-- Modals de réinitialisation -->
 {% for u in users %}
 <div class="modal fade" id="resetModal{{ u.pk }}" tabindex="-1"
      data-reset-url="{% url 'reset_user_password' u.pk %}">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-
-      {# CSRF token embarqué directement dans la modal #}
-      {% csrf_token %}
 
       <!-- Étape 1 : confirmation -->
       <div class="reset-step-confirm">
@@ -151,6 +151,19 @@
 (function () {
   'use strict';
 
+  /* Lecture du CSRF token — 3 sources par ordre de fiabilité */
+  function getCSRF() {
+    /* 1. Meta tag injecté dans base.html */
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content) return meta.content;
+    /* 2. Input global sur la page */
+    var el = document.getElementById('global-csrf');
+    if (el && el.value) return el.value;
+    /* 3. Cookie csrftoken */
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+  }
+
   document.querySelectorAll('.modal[data-reset-url]').forEach(function (modal) {
     var url = modal.dataset.resetUrl;
 
@@ -164,21 +177,12 @@
     var errorEl     = modal.querySelector('.reset-error-msg');
     var copyBtn     = modal.querySelector('.btn-copy-pwd');
 
-    /* Le {% csrf_token %} de Django rend <input type="hidden" name="csrfmiddlewaretoken" value="…">
-       On lit la valeur depuis cet input embarqué dans la modal */
-    function getCsrf() {
-      var el = modal.querySelector('input[name="csrfmiddlewaretoken"]');
-      return el ? el.value : '';
-    }
-
     function showStep(step) {
-      stepConfirm.classList.add('d-none');
-      stepResult.classList.add('d-none');
-      stepError.classList.add('d-none');
+      [stepConfirm, stepResult, stepError].forEach(function(s){ s.classList.add('d-none'); });
       step.classList.remove('d-none');
     }
 
-    /* Réinitialiser l'état à chaque ouverture de la modal */
+    /* Réinitialiser l'état à chaque ouverture */
     modal.addEventListener('show.bs.modal', function () {
       showStep(stepConfirm);
       btnConfirm.disabled = false;
@@ -190,18 +194,18 @@
       btnConfirm.innerHTML =
         '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Traitement…';
 
+      var csrf = getCSRF();
+
       fetch(url, {
         method: 'POST',
         headers: {
-          'X-CSRFToken': getCsrf(),
+          'X-CSRFToken': csrf,
           'X-Requested-With': 'XMLHttpRequest',
         },
         credentials: 'same-origin',
       })
       .then(function (res) {
-        if (!res.ok) {
-          throw new Error('Erreur serveur : HTTP ' + res.status);
-        }
+        if (!res.ok) throw new Error('Erreur serveur HTTP ' + res.status);
         return res.json();
       })
       .then(function (data) {
@@ -210,7 +214,7 @@
           nameEl.textContent = data.user_name;
           showStep(stepResult);
         } else {
-          throw new Error('Le serveur a retourné une erreur inattendue.');
+          throw new Error('Le serveur a renvoyé une erreur inattendue.');
         }
       })
       .catch(function (err) {
@@ -221,7 +225,6 @@
 
     btnConfirm.addEventListener('click', doReset);
 
-    /* Bouton "Réessayer" dans l'étape erreur */
     if (btnRetry) {
       btnRetry.addEventListener('click', function () {
         showStep(stepConfirm);
@@ -230,7 +233,6 @@
       });
     }
 
-    /* Copier le mot de passe */
     if (copyBtn) {
       copyBtn.addEventListener('click', function () {
         navigator.clipboard.writeText(pwdEl.textContent).then(function () {

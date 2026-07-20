@@ -40,39 +40,41 @@
   <a href="{% url 'teacher_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i>Retour</a>
 </div>
 
-<div class="row g-4" style="max-width: 860px;">
-  <!-- Photo de profil -->
-  <div class="col-12 col-md-4">
-    <div class="card h-100">
-      <div class="card-header">Photo de profil</div>
-      <div class="card-body d-flex flex-column align-items-center gap-3">
-        <div class="photo-drop-zone w-100" id="dropZone">
-          {% if obj and obj.user.photo_profil %}
-            <img src="{{ obj.user.photo_profil.url }}" class="drop-preview" id="dropPreview">
-          {% else %}
-            <img src="" class="drop-preview d-none" id="dropPreview">
-            <i class="bi bi-person-circle" style="font-size:2.5rem;color:var(--color-muted);"></i>
-          {% endif %}
-          <div class="mt-1" style="font-size:.85rem;font-weight:600;color:var(--color-text);">
-            {% if obj and obj.user.photo_profil %}Changer la photo{% else %}Ajouter une photo{% endif %}
+{# Le form enveloppe TOUTE la ligne pour inclure le champ photo #}
+<form method="post" enctype="multipart/form-data" style="max-width: 860px;">
+  {% csrf_token %}
+  <div class="row g-4">
+
+    <!-- Photo de profil -->
+    <div class="col-12 col-md-4">
+      <div class="card h-100">
+        <div class="card-header">Photo de profil</div>
+        <div class="card-body d-flex flex-column align-items-center gap-3">
+          <div class="photo-drop-zone w-100" id="dropZone">
+            {% if obj and obj.user.photo_profil %}
+              <img src="{{ obj.user.photo_profil.url }}" class="drop-preview" id="dropPreview">
+            {% else %}
+              <img src="" class="drop-preview d-none" id="dropPreview">
+              <i class="bi bi-person-circle" style="font-size:2.5rem;color:var(--color-muted);"></i>
+            {% endif %}
+            <div class="mt-1" style="font-size:.85rem;font-weight:600;color:var(--color-text);">
+              {% if obj and obj.user.photo_profil %}Changer la photo{% else %}Ajouter une photo{% endif %}
+            </div>
+            <div class="text-muted mt-1" style="font-size:.75rem;">PNG, JPG, WEBP — max 5 Mo</div>
+            {{ form.photo_profil }}
           </div>
-          <div class="text-muted mt-1" style="font-size:.75rem;">PNG, JPG, WEBP — max 5 Mo</div>
-          {{ form.photo_profil }}
-        </div>
-        <div class="text-muted text-center" style="font-size:.78rem;">
-          <i class="bi bi-info-circle me-1"></i>La photo sera visible dans la liste et le profil de l'enseignant.
+          <div class="text-muted text-center" style="font-size:.78rem;">
+            <i class="bi bi-info-circle me-1"></i>La photo sera visible dans la liste et le profil de l'enseignant.
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Informations -->
-  <div class="col-12 col-md-8">
-    <div class="card">
-      <div class="card-header">Informations personnelles</div>
-      <div class="card-body">
-        <form method="post" enctype="multipart/form-data">
-          {% csrf_token %}
+    <!-- Informations personnelles -->
+    <div class="col-12 col-md-8">
+      <div class="card">
+        <div class="card-header">Informations personnelles</div>
+        <div class="card-body">
           <div class="row g-3">
             <div class="col-md-6">
               <label class="form-label">Prénom *</label>
@@ -115,14 +117,15 @@
           {% endif %}
 
           <div class="mt-4 d-flex gap-2">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i>Enregistrer</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Enregistrer</button>
             <a href="{% url 'teacher_list' %}" class="btn btn-outline-secondary">Annuler</a>
           </div>
-        </form>
+        </div>
       </div>
     </div>
+
   </div>
-</div>
+</form>
 {% endblock %}
 
 {% block extra_js %}
