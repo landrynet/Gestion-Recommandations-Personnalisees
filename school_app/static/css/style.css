@@ -1108,3 +1108,66 @@ a:hover { color: var(--color-primary-hover); }
    AUTOSAVE
    ===================================================================== */
 #autosave-bar .alert { font-size: .82rem; }
+
+/* =====================================================================
+   NOTIFICATIONS
+   ===================================================================== */
+
+/* Badge cloche dans la navbar */
+.notif-badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  background: #EF4444;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 4px;
+  min-width: 16px;
+  text-align: center;
+  pointer-events: none;
+  line-height: 1.4;
+  border: 1.5px solid var(--color-bg, #fff);
+}
+
+/* Icône ronde colorée */
+.notif-icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+/* Item dans le drawer — surlignage non lu */
+.notif-drawer-unread {
+  background: var(--color-primary-soft, rgba(77,68,181,.06));
+  border-left: 3px solid var(--color-primary, #4D44B5);
+}
+.notif-drawer-item {
+  transition: background .15s;
+}
+.notif-drawer-item:hover {
+  background: var(--color-bg-hover, rgba(0,0,0,.04));
+}
+
+/* Item dans la page liste — surlignage non lu */
+.notif-row-unread {
+  background: var(--color-primary-soft, rgba(77,68,181,.05));
+  border-left: 3px solid var(--color-primary, #4D44B5);
+}
+.notif-row {
+  transition: background .15s;
+}
+
+/* Soft backgrounds Bootstrap complémentaires */
+.bg-info-soft     { background: rgba(13,202,240,.12) !important; }
+.bg-success-soft  { background: rgba(25,135,84,.12) !important; }
+.bg-warning-soft  { background: rgba(255,193,7,.14) !important; }
+.bg-primary-soft  { background: rgba(77,68,181,.12) !important; }
+.bg-danger-soft   { background: rgba(220,53,69,.12) !important; }
+.bg-secondary-soft{ background: rgba(108,117,125,.12) !important; }

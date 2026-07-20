@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'school_settings',
     'portail',
     'carte_eleve',
+    'notifications',
 ]
 
 MIDDLEWARE = [

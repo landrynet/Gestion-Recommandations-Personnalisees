@@ -2,6 +2,7 @@ import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
+from notifications.service import notify
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 
@@ -134,6 +135,13 @@ def profile_view(request):
                 user.set_password(password_form.cleaned_data['new_password'])
                 user.save(update_fields=['password'])
                 update_session_auth_hash(request, user)
+                notify(
+                    request.user,
+                    "Mot de passe modifié",
+                    "Votre mot de passe a été changé avec succès.",
+                    categorie='ADMIN', priorite='SUCCES', type_notif='MDP_CHANGE',
+                    lien='/login/profile/',
+                )
                 messages.success(request, "Mot de passe modifié avec succès.")
                 return redirect('profile_view')
             else:
@@ -172,6 +180,15 @@ def user_create(request):
         user, temp_password = form.save()
         if user.role == 'enseignant':
             Teacher.objects.get_or_create(user=user)
+        # Notification au nouvel utilisateur
+        notify(
+            user,
+            "Bienvenue sur SGN — votre compte a été créé",
+            f"Votre compte ({user.get_role_display()}) a été créé par le préfet. "
+            "Connectez-vous avec votre mot de passe temporaire et changez-le immédiatement.",
+            categorie='ADMIN', priorite='IMPORTANT', type_notif='COMPTE_CREE',
+            lien='/login/profile/', expediteur=request.user,
+        )
         return render(request, 'accounts/user_created.html', {
             'target_user': user,
             'temp_password': temp_password,
@@ -219,6 +236,14 @@ def reset_user_password(request, pk):
         user.set_password(temp_password)
         user.must_change_password = True
         user.save(update_fields=['password', 'must_change_password'])
+        # Notification à l'utilisateur concerné
+        notify(
+            user,
+            "Votre mot de passe a été réinitialisé",
+            "Un préfet a réinitialisé votre mot de passe. Connectez-vous avec le nouveau mot de passe temporaire et changez-le immédiatement.",
+            categorie='ADMIN', priorite='CRITIQUE', type_notif='MDP_REINIT',
+            lien='/login/profile/', expediteur=request.user,
+        )
         return render(request, 'accounts/user_created.html', {
             'target_user': user,
             'temp_password': temp_password,

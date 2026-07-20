@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from notifications.service import notify, notify_tous_enseignants, notify_prefets
 
 from .models import AnneeScolaire, Section, Classe, Niveau, DecisionPromotion, JournalOperation, Semestre
 from .forms import AnneeScolaireForm, SectionForm, ClasseForm, NiveauForm, DecisionPromotionForm
@@ -205,6 +206,12 @@ def annee_activer(request, pk):
             details={'annee': annee.annee},
         )
         messages.success(request, f"Année {annee} activée avec succès.")
+        notify_tous_enseignants(
+            f"Nouvelle année scolaire activée : {annee}",
+            "Vous pouvez désormais saisir les notes pour cette année scolaire.",
+            categorie='SCOLAIRE', priorite='IMPORTANT', type_notif='ANNEE_ACTIVEE',
+            lien='/classes/', expediteur=request.user, annee=annee,
+        )
     return redirect('annee_list')
 
 
@@ -749,6 +756,12 @@ def semestre_activer(request, pk):
         details={'semestre': semestre.numero},
     )
     messages.success(request, f"{semestre.get_numero_display()} activé avec succès.")
+    notify_tous_enseignants(
+        f"{semestre.get_numero_display()} activé — saisie des notes ouverte",
+        f"Périodes disponibles : {', '.join(semestre.periodes)}.",
+        categorie='SCOLAIRE', priorite='IMPORTANT', type_notif='SEMESTRE_ACTIF',
+        lien='/notes/', expediteur=request.user, annee=annee,
+    )
     return redirect('semestre_list')
 
 
@@ -774,6 +787,12 @@ def semestre_publier(request, pk):
         details={'semestre': semestre.numero, 'periodes': semestre.periodes},
     )
     messages.success(request, f"{semestre.get_numero_display()} publié — les notes sont désormais verrouillées.")
+    notify_tous_enseignants(
+        f"{semestre.get_numero_display()} publié — notes verrouillées",
+        "Les notes de ce semestre sont en lecture seule. Consultez l'historique pour les voir.",
+        categorie='SCOLAIRE', priorite='AVERT', type_notif='SEMESTRE_PUBLIE',
+        lien='/notes/historique/', expediteur=request.user, annee=semestre.annee_scolaire,
+    )
     return redirect('semestre_list')
 
 
@@ -792,6 +811,12 @@ def semestre_archiver(request, pk):
     semestre.date_archivage = timezone.now()
     semestre.save()
     messages.success(request, f"{semestre.get_numero_display()} archivé.")
+    notify_prefets(
+        f"{semestre.get_numero_display()} archivé",
+        f"Les données du {semestre.get_numero_display().lower()} sont conservées en lecture seule.",
+        categorie='SCOLAIRE', priorite='INFO', type_notif='SEMESTRE_ARCHIVE',
+        lien='/classes/semestres/', expediteur=request.user, annee=semestre.annee_scolaire,
+    )
     return redirect('semestre_list')
 
 
@@ -810,4 +835,11 @@ def semestre_toggle_repechage(request, pk):
     semestre.save()
     etat = "activé" if semestre.repechage_actif else "désactivé"
     messages.success(request, f"Repêchage {etat}.")
+    notify_tous_enseignants(
+        f"Repêchage {etat} — {semestre.get_numero_display()}",
+        "La période de repêchage a été mise à jour pour le deuxième semestre.",
+        categorie='SCOLAIRE', priorite='INFO',
+        type_notif='REPECHAGE_ACTIF' if semestre.repechage_actif else 'REPECHAGE_INACTIF',
+        lien='/notes/', expediteur=request.user, annee=semestre.annee_scolaire,
+    )
     return redirect('semestre_list')

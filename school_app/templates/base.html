@@ -110,6 +110,12 @@
     <a href="{% url 'portail_acces_list' %}" class="nav-link {% if request.resolver_match.url_name == 'portail_acces_list' %}active{% endif %}">
       <i class="bi bi-qr-code-scan"></i><span>Accès portail</span>
     </a>
+
+    <div class="nav-section-label">Messagerie</div>
+    <a href="{% url 'notification_list' %}" class="nav-link {% if 'notification' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-bell-fill"></i><span>Notifications</span>
+      <span class="sidebar-notif-count d-none ms-auto badge bg-danger rounded-pill" id="sidebar-notif-badge"></span>
+    </a>
   </nav>
 
   <div class="sidebar-footer">
@@ -168,6 +174,12 @@
     </a>
     <a href="{% url 'historique_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'historique_notes' %}active{% endif %}">
       <i class="bi bi-clock-history"></i><span>Historique</span>
+    </a>
+
+    <div class="nav-section-label">Messagerie</div>
+    <a href="{% url 'notification_list' %}" class="nav-link {% if 'notification' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-bell-fill"></i><span>Notifications</span>
+      <span class="sidebar-notif-count d-none ms-auto badge bg-danger rounded-pill" id="sidebar-notif-badge-ens"></span>
     </a>
   </nav>
 
@@ -233,10 +245,43 @@
         <i class="bi bi-moon-fill" id="theme-icon"></i>
       </button>
 
-      <!-- Notifications placeholder -->
-      <button class="topbar-icon-btn" title="Notifications">
-        <i class="bi bi-bell-fill"></i>
-      </button>
+      <!-- Notifications -->
+      <div class="position-relative">
+        <button class="topbar-icon-btn" id="notif-bell" title="Notifications"
+                data-bs-toggle="offcanvas" data-bs-target="#notifDrawer" aria-controls="notifDrawer">
+          <i class="bi bi-bell-fill"></i>
+          <span class="notif-badge d-none" id="notif-badge"></span>
+        </button>
+      </div>
+
+      <!-- ── Drawer notifications ── -->
+      <div class="offcanvas offcanvas-end" tabindex="-1" id="notifDrawer"
+           aria-labelledby="notifDrawerLabel" style="width:390px;max-width:100vw">
+        <div class="offcanvas-header border-bottom py-3">
+          <span class="offcanvas-title fw-bold" id="notifDrawerLabel">
+            <i class="bi bi-bell-fill text-primary me-2"></i>Notifications
+            <span id="notif-drawer-badge" class="badge bg-danger ms-1 d-none"></span>
+          </span>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" id="notif-drawer-tout-lire"
+                    title="Tout marquer comme lu" style="font-size:.75rem">
+              <i class="bi bi-check2-all"></i> Tout lire
+            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+          </div>
+        </div>
+        <div class="offcanvas-body p-0 overflow-auto" id="notif-drawer-body">
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-hourglass-split fs-2 d-block mb-2 opacity-50"></i>
+            <div class="small">Chargement…</div>
+          </div>
+        </div>
+        <div class="p-3 border-top bg-light-subtle">
+          <a href="{% url 'notification_list' %}" class="btn btn-primary btn-sm w-100">
+            <i class="bi bi-list-ul me-1"></i>Voir toutes les notifications
+          </a>
+        </div>
+      </div>
 
       <!-- User dropdown -->
       <div class="topbar-user-wrap">
@@ -581,5 +626,152 @@ document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
 
 })();
 </script>
+
+<!-- ════════════════════════════════════════════════════════════════
+     SYSTÈME DE NOTIFICATIONS — Drawer + Badge
+════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  const CSRF     = document.cookie.split(';').map(c => c.trim())
+                    .find(c => c.startsWith('csrftoken='))?.split('=')[1] || '';
+  const badge    = document.getElementById('notif-badge');
+  const dbadge   = document.getElementById('notif-drawer-badge');
+  const body     = document.getElementById('notif-drawer-body');
+  const toutBtn  = document.getElementById('notif-drawer-tout-lire');
+  const drawer   = document.getElementById('notifDrawer');
+
+  // Palette couleurs Bootstrap par priorité
+  const COLORS = {
+    INFO:      'info',
+    SUCCES:    'success',
+    AVERT:     'warning',
+    IMPORTANT: 'primary',
+    CRITIQUE:  'danger',
+  };
+
+  // ── Mise à jour du badge navbar ──────────────────────────────────
+  async function refreshCount() {
+    try {
+      const r = await fetch('/notifications/count/', {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+      const d = await r.json();
+      setBadge(d.count);
+    } catch(e) {}
+  }
+
+  const sbBadge  = document.getElementById('sidebar-notif-badge');
+  const sbBadge2 = document.getElementById('sidebar-notif-badge-ens');
+
+  function setBadge(n) {
+    const label = n > 99 ? '99+' : String(n);
+    // Navbar bell
+    if (badge) {
+      if (n > 0) { badge.textContent = label; badge.classList.remove('d-none'); }
+      else        { badge.classList.add('d-none'); }
+    }
+    // Drawer header
+    if (dbadge) {
+      if (n > 0) { dbadge.textContent = label; dbadge.classList.remove('d-none'); }
+      else        { dbadge.classList.add('d-none'); }
+    }
+    // Sidebar link badges (prefet + enseignant)
+    [sbBadge, sbBadge2].forEach(b => {
+      if (!b) return;
+      if (n > 0) { b.textContent = label; b.classList.remove('d-none'); }
+      else        { b.classList.add('d-none'); }
+    });
+  }
+
+  // ── Rendu d'un item dans le drawer ──────────────────────────────
+  function renderItem(n) {
+    const color = COLORS[n.priorite] || 'info';
+    const unread = !n.lue;
+    return `
+      <div class="notif-drawer-item d-flex gap-3 px-4 py-3 border-bottom ${unread ? 'notif-drawer-unread' : ''}"
+           id="di-${n.id}">
+        <div class="notif-icon-circle bg-${color}-subtle flex-shrink-0" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center">
+          <i class="bi ${n.icone} text-${color}" style="font-size:1rem"></i>
+        </div>
+        <div class="flex-grow-1 min-w-0">
+          <div class="fw-semibold small ${unread ? '' : 'text-muted'}" style="line-height:1.3">
+            ${n.titre}${unread ? '<span class="badge bg-primary ms-1" style="font-size:.6rem;vertical-align:middle">Nouveau</span>' : ''}
+          </div>
+          ${n.description ? `<div class="text-muted" style="font-size:.75rem;margin-top:2px">${n.description}</div>` : ''}
+          <div class="text-muted mt-1" style="font-size:.68rem">${n.date} à ${n.heure}</div>
+        </div>
+        <div class="d-flex flex-column gap-1 flex-shrink-0 justify-content-center">
+          ${n.lien ? `<a href="${n.lien}" class="btn btn-outline-primary" style="font-size:.68rem;padding:2px 7px;white-space:nowrap"><i class="bi bi-arrow-right-circle"></i></a>` : ''}
+          ${unread ? `<button class="btn btn-outline-secondary di-mark-read" data-id="${n.id}" style="font-size:.68rem;padding:2px 7px" title="Marquer lu"><i class="bi bi-check2"></i></button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ── Chargement du drawer ─────────────────────────────────────────
+  async function loadDrawer() {
+    if (!body) return;
+    try {
+      const r = await fetch('/notifications/recentes/', {headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const d = await r.json();
+      setBadge(d.nb_non_lues);
+      if (d.notifications.length === 0) {
+        body.innerHTML = `<div class="text-center text-muted py-5">
+          <i class="bi bi-bell-slash fs-2 d-block mb-2 opacity-50"></i>
+          <div class="small">Aucune notification</div></div>`;
+      } else {
+        body.innerHTML = d.notifications.map(renderItem).join('');
+        // Listener sur chaque bouton "lire"
+        body.querySelectorAll('.di-mark-read').forEach(btn => {
+          btn.addEventListener('click', () => markRead(btn.dataset.id));
+        });
+      }
+    } catch(e) {
+      body.innerHTML = `<div class="text-center text-muted py-4 small">Erreur de chargement</div>`;
+    }
+  }
+
+  // ── Marquer une notification lue ─────────────────────────────────
+  async function markRead(id) {
+    try {
+      await fetch(`/notifications/${id}/lire/`, {
+        method:'POST',
+        headers:{'X-CSRFToken': CSRF, 'X-Requested-With':'XMLHttpRequest'}
+      });
+      const item = document.getElementById('di-' + id);
+      if (item) {
+        item.classList.remove('notif-drawer-unread');
+        item.querySelector('.di-mark-read')?.remove();
+        item.querySelector('.badge.bg-primary')?.remove();
+      }
+      refreshCount();
+    } catch(e) {}
+  }
+
+  // ── Tout marquer lu ──────────────────────────────────────────────
+  if (toutBtn) {
+    toutBtn.addEventListener('click', async () => {
+      try {
+        await fetch('/notifications/tout-lire/', {
+          method:'POST',
+          headers:{'X-CSRFToken': CSRF, 'X-Requested-With':'XMLHttpRequest'}
+        });
+        setBadge(0);
+        loadDrawer();
+      } catch(e) {}
+    });
+  }
+
+  // ── Ouverture du drawer → recharger ─────────────────────────────
+  if (drawer) {
+    drawer.addEventListener('show.bs.offcanvas', loadDrawer);
+  }
+
+  // ── Init + polling toutes les 60 secondes ───────────────────────
+  refreshCount();
+  setInterval(refreshCount, 60_000);
+
+})();
+</script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>
