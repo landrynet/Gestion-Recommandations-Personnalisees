@@ -230,6 +230,7 @@ def user_delete(request, pk):
 @login_required
 @prefet_required
 def reset_user_password(request, pk):
+    from django.http import JsonResponse
     user = get_object_or_404(CustomUser, pk=pk)
     if request.method == 'POST':
         temp_password = generate_temp_password()
@@ -244,6 +245,14 @@ def reset_user_password(request, pk):
             categorie='ADMIN', priorite='CRITIQUE', type_notif='MDP_REINIT',
             lien='/login/profile/', expediteur=request.user,
         )
+        # Retourner JSON pour les requêtes AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'temp_password': temp_password,
+                'user_name': user.get_full_name() or user.email,
+                'email': user.email,
+            })
         return render(request, 'accounts/user_created.html', {
             'target_user': user,
             'temp_password': temp_password,
