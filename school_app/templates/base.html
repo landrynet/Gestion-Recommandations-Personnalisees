@@ -529,7 +529,18 @@ document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
     if (!href || href.startsWith('#') || href.startsWith('javascript') || a.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
     Bar.start();
   });
-  window.addEventListener('pageshow', () => Bar.done());
+  window.addEventListener('pageshow', (e) => {
+    Bar.done();
+    /* Bfcache restore — clear any stuck loading buttons */
+    if (e.persisted) {
+      document.querySelectorAll('button[data-loading]').forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('btn-loading');
+        delete btn.dataset.loading;
+      });
+      Overlay.hide();
+    }
+  });
   window.addEventListener('load',     () => Bar.done());
 
   /* ── 6. Global API ── */
