@@ -69,19 +69,26 @@
 
 <!-- Modals de réinitialisation -->
 {% for u in users %}
-<div class="modal fade" id="resetModal{{ u.pk }}" tabindex="-1" data-reset-url="{% url 'reset_user_password' u.pk %}">
+<div class="modal fade" id="resetModal{{ u.pk }}" tabindex="-1"
+     data-reset-url="{% url 'reset_user_password' u.pk %}">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
 
-      <!-- Vue : confirmation -->
+      {# CSRF token embarqué directement dans la modal #}
+      {% csrf_token %}
+
+      <!-- Étape 1 : confirmation -->
       <div class="reset-step-confirm">
         <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2 text-warning"></i>Réinitialiser le mot de passe</h5>
+          <h5 class="modal-title">
+            <i class="bi bi-arrow-repeat me-2 text-warning"></i>Réinitialiser le mot de passe
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <p>Réinitialiser le mot de passe de <strong>{{ u.get_full_name|default:u.email }}</strong> ?</p>
-          <p class="text-muted small">Un nouveau mot de passe temporaire sera généré. L'utilisateur devra le changer à sa prochaine connexion.</p>
+          <p class="text-muted small mb-0">Un nouveau mot de passe temporaire sera généré.
+            L'utilisateur devra le changer à sa prochaine connexion.</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
@@ -91,15 +98,17 @@
         </div>
       </div>
 
-      <!-- Vue : résultat (masquée au départ) -->
+      <!-- Étape 2 : succès -->
       <div class="reset-step-result d-none">
         <div class="modal-header border-0">
-          <h5 class="modal-title text-success"><i class="bi bi-check-circle-fill me-2"></i>Mot de passe réinitialisé</h5>
+          <h5 class="modal-title text-success">
+            <i class="bi bi-check-circle-fill me-2"></i>Mot de passe réinitialisé
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <p class="mb-1">Nouveau mot de passe temporaire de <strong class="reset-user-name"></strong> :</p>
-          <div class="d-flex align-items-center gap-2 mt-2 mb-3">
+          <p class="mb-2">Nouveau mot de passe temporaire de <strong class="reset-user-name"></strong> :</p>
+          <div class="d-flex align-items-center gap-2 mb-3">
             <code class="reset-tmp-pwd fs-5 fw-bold px-3 py-2 rounded"
                   style="background:#f8fafc;border:2px dashed #fbbf24;letter-spacing:.15em;user-select:all;"></code>
             <button type="button" class="btn btn-sm btn-outline-secondary btn-copy-pwd" title="Copier">
@@ -116,17 +125,20 @@
         </div>
       </div>
 
-      <!-- Vue : erreur (masquée au départ) -->
+      <!-- Étape 3 : erreur -->
       <div class="reset-step-error d-none">
         <div class="modal-header">
-          <h5 class="modal-title text-danger"><i class="bi bi-x-circle-fill me-2"></i>Erreur</h5>
+          <h5 class="modal-title text-danger">
+            <i class="bi bi-x-circle-fill me-2"></i>Erreur
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <p class="text-danger reset-error-msg">Une erreur est survenue. Veuillez réessayer.</p>
+          <p class="text-danger reset-error-msg mb-0">Une erreur est survenue. Veuillez réessayer.</p>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+          <button type="button" class="btn btn-secondary btn-reset-retry">Réessayer</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
         </div>
       </div>
 
@@ -139,71 +151,90 @@
 (function () {
   'use strict';
 
-  const CSRF = document.cookie.split(';')
-    .map(c => c.trim())
-    .find(c => c.startsWith('csrftoken='))
-    ?.split('=')[1] || '';
-
   document.querySelectorAll('.modal[data-reset-url]').forEach(function (modal) {
-    const url = modal.dataset.resetUrl;
+    var url = modal.dataset.resetUrl;
 
-    const stepConfirm = modal.querySelector('.reset-step-confirm');
-    const stepResult  = modal.querySelector('.reset-step-result');
-    const stepError   = modal.querySelector('.reset-step-error');
-    const btnConfirm  = modal.querySelector('.btn-reset-confirm');
-    const pwdEl       = modal.querySelector('.reset-tmp-pwd');
-    const nameEl      = modal.querySelector('.reset-user-name');
-    const errorEl     = modal.querySelector('.reset-error-msg');
-    const copyBtn     = modal.querySelector('.btn-copy-pwd');
+    var stepConfirm = modal.querySelector('.reset-step-confirm');
+    var stepResult  = modal.querySelector('.reset-step-result');
+    var stepError   = modal.querySelector('.reset-step-error');
+    var btnConfirm  = modal.querySelector('.btn-reset-confirm');
+    var btnRetry    = modal.querySelector('.btn-reset-retry');
+    var pwdEl       = modal.querySelector('.reset-tmp-pwd');
+    var nameEl      = modal.querySelector('.reset-user-name');
+    var errorEl     = modal.querySelector('.reset-error-msg');
+    var copyBtn     = modal.querySelector('.btn-copy-pwd');
 
-    // Réinitialiser l'état à chaque ouverture
-    modal.addEventListener('show.bs.modal', function () {
-      stepConfirm.classList.remove('d-none');
+    /* Le {% csrf_token %} de Django rend <input type="hidden" name="csrfmiddlewaretoken" value="…">
+       On lit la valeur depuis cet input embarqué dans la modal */
+    function getCsrf() {
+      var el = modal.querySelector('input[name="csrfmiddlewaretoken"]');
+      return el ? el.value : '';
+    }
+
+    function showStep(step) {
+      stepConfirm.classList.add('d-none');
       stepResult.classList.add('d-none');
       stepError.classList.add('d-none');
+      step.classList.remove('d-none');
+    }
+
+    /* Réinitialiser l'état à chaque ouverture de la modal */
+    modal.addEventListener('show.bs.modal', function () {
+      showStep(stepConfirm);
       btnConfirm.disabled = false;
       btnConfirm.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Réinitialiser';
     });
 
-    // Clic sur Réinitialiser
-    btnConfirm.addEventListener('click', function () {
+    function doReset() {
       btnConfirm.disabled = true;
-      btnConfirm.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Traitement…';
+      btnConfirm.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Traitement…';
 
       fetch(url, {
         method: 'POST',
         headers: {
-          'X-CSRFToken': CSRF,
+          'X-CSRFToken': getCsrf(),
           'X-Requested-With': 'XMLHttpRequest',
         },
+        credentials: 'same-origin',
       })
       .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) {
+          throw new Error('Erreur serveur : HTTP ' + res.status);
+        }
         return res.json();
       })
       .then(function (data) {
         if (data.success) {
-          pwdEl.textContent = data.temp_password;
+          pwdEl.textContent  = data.temp_password;
           nameEl.textContent = data.user_name;
-          stepConfirm.classList.add('d-none');
-          stepResult.classList.remove('d-none');
+          showStep(stepResult);
         } else {
-          throw new Error('Échec serveur');
+          throw new Error('Le serveur a retourné une erreur inattendue.');
         }
       })
       .catch(function (err) {
-        errorEl.textContent = 'Erreur : ' + err.message + '. Veuillez réessayer.';
-        stepConfirm.classList.add('d-none');
-        stepError.classList.remove('d-none');
+        errorEl.textContent = err.message || 'Une erreur est survenue. Veuillez réessayer.';
+        showStep(stepError);
       });
-    });
+    }
 
-    // Copier le mot de passe
+    btnConfirm.addEventListener('click', doReset);
+
+    /* Bouton "Réessayer" dans l'étape erreur */
+    if (btnRetry) {
+      btnRetry.addEventListener('click', function () {
+        showStep(stepConfirm);
+        btnConfirm.disabled = false;
+        btnConfirm.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Réinitialiser';
+      });
+    }
+
+    /* Copier le mot de passe */
     if (copyBtn) {
       copyBtn.addEventListener('click', function () {
-        const pwd = pwdEl.textContent;
-        navigator.clipboard.writeText(pwd).then(function () {
-          const icon = copyBtn.querySelector('i');
+        navigator.clipboard.writeText(pwdEl.textContent).then(function () {
+          var icon = copyBtn.querySelector('i');
           icon.className = 'bi bi-check2 text-success';
           setTimeout(function () { icon.className = 'bi bi-clipboard'; }, 2000);
         });
