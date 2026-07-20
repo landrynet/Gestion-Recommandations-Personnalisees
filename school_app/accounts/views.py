@@ -114,7 +114,7 @@ def profile_view(request):
     password_form = ChangePasswordForm(user=user, data=None)
 
     # Chargement de l'onglet actif depuis le paramètre
-    active_tab = request.POST.get('_tab', 'info') or request.GET.get('tab', 'info')
+    active_tab = request.POST.get('_tab') or request.GET.get('tab') or 'info'
 
     if request.method == 'POST':
         action = request.POST.get('_action', 'profile')
