@@ -156,6 +156,8 @@
     {% if nb_valides > 0 %}
     <button type="submit" name="action" value="appliquer_promotions"
             class="btn btn-success fw-bold"
+            data-overlay-title="Promotions en cours…"
+            data-overlay-desc="Déplacement de {{ nb_valides }} élève(s) vers leurs nouvelles classes."
             onclick="return confirm('Appliquer les {{ nb_valides }} promotion(s) validée(s) ? Les élèves seront déplacés vers leurs nouvelles classes.')">
       <i class="bi bi-arrow-up-circle me-2"></i>Appliquer les promotions validées ({{ nb_valides }})
     </button>

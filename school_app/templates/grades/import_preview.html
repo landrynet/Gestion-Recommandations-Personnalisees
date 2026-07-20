@@ -74,7 +74,9 @@
 
 <div class="d-flex gap-2">
   {% if nb_changes > 0 %}
-  <form method="post" action="{% url 'import_notes_preview' %}">
+  <form method="post" action="{% url 'import_notes_preview' %}"
+        data-overlay-title="Import en cours…"
+        data-overlay-desc="Enregistrement des notes pour {{ nb_changes }} élève(s). Veuillez patienter.">
     {% csrf_token %}
     <button type="submit" class="btn btn-success btn-lg">
       <i class="bi bi-check-circle me-2"></i>Confirmer l'import ({{ nb_changes }} élève(s))

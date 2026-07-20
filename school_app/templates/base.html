@@ -275,16 +275,12 @@
     </div>
   </header>
 
-  <!-- Alerts -->
-  <div class="px-4 pt-3">
-    {% for msg in messages %}
-    <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show py-2" role="alert" style="border-radius:10px;font-size:.875rem;">
-      <i class="bi bi-{% if msg.tags == 'success' %}check-circle{% elif msg.tags == 'error' or msg.tags == 'danger' %}exclamation-circle{% else %}info-circle{% endif %}-fill me-2"></i>
-      {{ msg }}
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-  </div>
+  <!-- Django messages → converted to toasts by JS -->
+  {% for msg in messages %}
+  <div data-django-message="{{ msg|escape }}"
+       data-django-type="{% if 'success' in msg.tags %}success{% elif 'error' in msg.tags or 'danger' in msg.tags %}error{% elif 'warning' in msg.tags %}warning{% else %}info{% endif %}"
+       hidden></div>
+  {% endfor %}
 
   <!-- Page content -->
   <main class="page-content">
@@ -355,11 +351,10 @@
   });
 })();
 
-/* ── Auto-dismiss alerts ── */
+/* ── Auto-dismiss legacy alerts (fallback) ── */
 document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
-  const inst = bootstrap.Alert.getOrCreateInstance(a);
-  if (inst) inst.close();
-}, 5000));
+  try { bootstrap.Alert.getOrCreateInstance(a).close(); } catch(e) {}
+}, 4500));
 
 /* ── Dark / Light mode ── */
 (function () {
@@ -411,65 +406,162 @@ document.querySelectorAll('.alert').forEach(a => setTimeout(() => {
 </script>
 {% block extra_js %}{% endblock %}
 <script>
-/* ══ Barre de chargement ══════════════════════════════════════════ */
+/* ══ Loading UX v2 ══════════════════════════════════════════════════ */
 (function () {
   'use strict';
+
+  /* ── 1. Navigation progress bar ── */
   const Bar = (() => {
     const el = document.createElement('div'); el.id = 'sgn-bar'; document.body.prepend(el);
     let pct = 0, rafId = null, active = false;
-    function set(p) { pct = Math.min(p,99); el.style.width = pct+'%'; el.style.opacity='1'; el.classList.remove('done'); }
-    function trickle() { set(pct + (pct<20?10:pct<50?5:pct<80?2:.5)); rafId = requestAnimationFrame(()=>setTimeout(trickle,300)); }
+    function set(p) { pct = Math.min(p, 99); el.style.width = pct + '%'; el.style.opacity = '1'; el.classList.remove('done'); }
+    function trickle() { set(pct + (pct < 20 ? 10 : pct < 50 ? 5 : pct < 80 ? 2 : .5)); rafId = requestAnimationFrame(() => setTimeout(trickle, 320)); }
     return {
-      start() { if(active)return; active=true; pct=0; set(3); trickle(); },
-      done()  { if(!active)return; active=false; cancelAnimationFrame(rafId); el.style.width='100%'; el.style.opacity='1'; el.classList.add('done'); el.addEventListener('transitionend',()=>{pct=0;el.style.width='0';},{once:true}); }
+      start() { if (active) return; active = true; pct = 0; set(3); trickle(); },
+      done()  { if (!active) return; active = false; cancelAnimationFrame(rafId); el.style.width = '100%'; el.style.opacity = '1'; el.classList.add('done'); el.addEventListener('transitionend', () => { pct = 0; el.style.width = '0'; }, { once: true }); }
     };
   })();
+
+  /* ── 2. Toast manager ── */
+  const Toast = (() => {
+    const container = (() => {
+      let c = document.getElementById('sgn-toast-container');
+      if (!c) { c = document.createElement('div'); c.id = 'sgn-toast-container'; document.body.appendChild(c); }
+      return c;
+    })();
+    const ICONS = {
+      success: 'bi-check-lg',
+      error:   'bi-x-lg',
+      warning: 'bi-exclamation-lg',
+      info:    'bi-info-lg',
+    };
+    function show(msg, type, duration) {
+      type     = type     || 'info';
+      duration = duration || 4500;
+      const t = document.createElement('div');
+      t.className = 'sgn-toast';
+      const fill_id = 'tf' + Math.random().toString(36).slice(2);
+      t.innerHTML =
+        '<div class="sgn-toast-icon ' + type + '"><i class="bi ' + (ICONS[type] || ICONS.info) + '"></i></div>' +
+        '<div class="sgn-toast-body">' +
+          '<div class="sgn-toast-msg">' + msg + '</div>' +
+          '<div class="sgn-toast-progress"><div class="sgn-toast-progress-fill" id="' + fill_id + '" style="width:100%"></div></div>' +
+        '</div>' +
+        '<button class="sgn-toast-close" aria-label="Fermer"><i class="bi bi-x"></i></button>';
+      container.appendChild(t);
+      /* progress countdown */
+      const fill = document.getElementById(fill_id);
+      if (fill) { requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.transition = 'width ' + duration + 'ms linear'; fill.style.width = '0%'; })); }
+      const dismiss = () => {
+        t.classList.add('toast-out');
+        t.addEventListener('transitionend', () => t.remove(), { once: true });
+      };
+      const timer = setTimeout(dismiss, duration);
+      t.querySelector('.sgn-toast-close').addEventListener('click', () => { clearTimeout(timer); dismiss(); });
+    }
+    return { show };
+  })();
+
+  /* Convert Django messages to toasts */
+  document.querySelectorAll('[data-django-message]').forEach(el => {
+    Toast.show(el.dataset.djangoMessage, el.dataset.djangoType);
+    el.remove();
+  });
+
+  /* ── 3. Loading overlay ── */
+  const Overlay = (() => {
+    const el = (() => {
+      const o = document.createElement('div'); o.id = 'sgn-overlay';
+      o.innerHTML =
+        '<div class="sgn-overlay-card">' +
+          '<div class="sgn-overlay-spinner"></div>' +
+          '<div class="sgn-overlay-title" id="sgn-ov-title">Traitement en cours</div>' +
+          '<div class="sgn-overlay-desc"  id="sgn-ov-desc">Veuillez patienter…</div>' +
+          '<div class="sgn-overlay-bar-wrap"><div class="sgn-overlay-bar-fill"></div></div>' +
+          '<div class="sgn-overlay-note">Ne fermez pas cette fenêtre</div>' +
+        '</div>';
+      document.body.appendChild(o); return o;
+    })();
+    return {
+      show(title, desc) {
+        document.getElementById('sgn-ov-title').textContent = title || 'Traitement en cours';
+        document.getElementById('sgn-ov-desc').textContent  = desc  || 'Veuillez patienter…';
+        el.classList.add('active');
+      },
+      hide() { el.classList.remove('active'); }
+    };
+  })();
+
+  /* ── 4. Form submit handler ── */
+  document.addEventListener('submit', (e) => {
+    const form = e.target; if (!form) return;
+    const btn = form.querySelector('[type="submit"]:not([data-no-loading])');
+    if (!btn || btn.dataset.loading) return;
+
+    /* Overlay for long operations */
+    const ovTitle = form.dataset.overlayTitle || btn.dataset.overlayTitle;
+    const ovDesc  = form.dataset.overlayDesc  || btn.dataset.overlayDesc;
+    if (ovTitle) Overlay.show(ovTitle, ovDesc);
+
+    Bar.start();
+    btn.dataset.loading = '1';
+    const origHTML  = btn.innerHTML;
+    const origWidth = btn.offsetWidth;
+    btn.style.minWidth = origWidth + 'px';
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span>' + btn.textContent.trim();
+
+    /* Restore if browser-side validation blocks submit */
+    setTimeout(() => {
+      if (form.checkValidity && !form.checkValidity()) {
+        btn.disabled = false; btn.innerHTML = origHTML; btn.style.minWidth = '';
+        btn.classList.remove('btn-loading'); delete btn.dataset.loading;
+        Bar.done(); Overlay.hide();
+      }
+    }, 150);
+  });
+
+  /* ── 5. Link progress bar ── */
   document.addEventListener('click', (e) => {
-    const a = e.target.closest('a[href]');
-    if (!a) return;
+    const a = e.target.closest('a[href]'); if (!a) return;
     const href = a.getAttribute('href');
-    if (!href || href.startsWith('#') || href.startsWith('javascript') || a.target==='_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (!href || href.startsWith('#') || href.startsWith('javascript') || a.target === '_blank' || e.ctrlKey || e.metaKey || e.shiftKey) return;
     Bar.start();
   });
-  window.addEventListener('pageshow', ()=>Bar.done());
-  window.addEventListener('load',     ()=>Bar.done());
-  document.addEventListener('submit', (e) => {
-    const form = e.target;
-    const btn  = form.querySelector('[type="submit"]:not([data-no-loading])');
-    if (!btn || btn.dataset.loading) return;
-    Bar.start(); btn.dataset.loading='1';
-    const orig = btn.innerHTML; btn.disabled=true;
-    btn.innerHTML = `<span class="btn-spinner"></span>${btn.textContent.trim()}`;
-    setTimeout(()=>{ if(!form.checkValidity||form.checkValidity())return; btn.disabled=false; btn.innerHTML=orig; delete btn.dataset.loading; Bar.done(); },200);
-  });
-  /* Live search / filter */
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('[data-live-search]').forEach(input => {
-      const tbl = document.getElementById(input.dataset.liveSearch); if(!tbl)return;
-      const emptyRow = tbl.querySelector('tr[data-empty]');
-      input.addEventListener('input', () => {
-        const q = input.value.toLowerCase().trim(); let visible = 0;
-        tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
-          const match = !q || row.textContent.toLowerCase().includes(q);
-          row.style.display = match ? '' : 'none'; if(match) visible++;
-        });
-        if(emptyRow) emptyRow.style.display = visible===0 ? '' : 'none';
-        const card = tbl.closest('.card');
-        if(card){ const counter = card.querySelector('[data-live-count]'); if(counter) counter.textContent=visible; }
+  window.addEventListener('pageshow', () => Bar.done());
+  window.addEventListener('load',     () => Bar.done());
+
+  /* ── 6. Global API ── */
+  window.SGN = { toast: Toast.show.bind(Toast), overlay: Overlay, bar: Bar };
+
+  /* ── 7. Live search / filter ── */
+  document.querySelectorAll('[data-live-search]').forEach(input => {
+    const tbl = document.getElementById(input.dataset.liveSearch); if (!tbl) return;
+    const emptyRow = tbl.querySelector('tr[data-empty]');
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase().trim(); let visible = 0;
+      tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
+        const match = !q || row.textContent.toLowerCase().includes(q);
+        row.style.display = match ? '' : 'none'; if (match) visible++;
       });
+      if (emptyRow) emptyRow.style.display = visible === 0 ? '' : 'none';
+      const card = tbl.closest('.card');
+      if (card) { const counter = card.querySelector('[data-live-count]'); if (counter) counter.textContent = visible; }
     });
-    document.querySelectorAll('[data-live-filter]').forEach(sel => {
-      const tbl = document.getElementById(sel.dataset.liveFilter); if(!tbl)return;
-      const col = parseInt(sel.dataset.liveCol||'0',10);
-      sel.addEventListener('change', () => {
-        const q = sel.value.toLowerCase();
-        tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
-          const cell=row.cells[col]; const match=!q||(cell&&cell.textContent.toLowerCase().includes(q));
-          row.style.display=match?'':'none';
-        });
+  });
+  document.querySelectorAll('[data-live-filter]').forEach(sel => {
+    const tbl = document.getElementById(sel.dataset.liveFilter); if (!tbl) return;
+    const col = parseInt(sel.dataset.liveCol || '0', 10);
+    sel.addEventListener('change', () => {
+      const q = sel.value.toLowerCase();
+      tbl.querySelectorAll('tbody tr:not([data-empty])').forEach(row => {
+        const cell = row.cells[col]; const match = !q || (cell && cell.textContent.toLowerCase().includes(q));
+        row.style.display = match ? '' : 'none';
       });
     });
   });
+
 })();
 </script>
 </body>
