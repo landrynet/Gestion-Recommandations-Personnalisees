@@ -34,7 +34,7 @@ class CustomUser(AbstractUser):
         ('prefet',      'Préfet des études'),
         ('enseignant',  'Enseignant'),
     ]
-    role                 = models.CharField(max_length=20, choices=ROLE_CHOICES, default='enseignant')
+    role                 = models.CharField(max_length=20, choices=ROLE_CHOICES, default='enseignant', db_index=True)
     telephone            = models.CharField('Téléphone', max_length=20, blank=True)
     must_change_password = models.BooleanField(
         'Doit changer le mot de passe', default=False,

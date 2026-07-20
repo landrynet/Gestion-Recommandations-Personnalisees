@@ -35,7 +35,8 @@ def _verifier_cloture(annee):
     tout_ok = True
 
     # 1. Vérifier que toutes les classes ont des matières affectées
-    classes_sans_matieres = [c for c in classes if c.matieres.count() == 0]
+    # Utiliser len(c.matieres.all()) pour bénéficier du prefetch_related (count() force une requête)
+    classes_sans_matieres = [c for c in classes if len(c.matieres.all()) == 0]
     ok1 = len(classes_sans_matieres) == 0
     checks.append({
         'titre': "Matières affectées à toutes les classes",
@@ -108,7 +109,7 @@ def _verifier_cloture(annee):
         tout_ok = False
 
     # 5. Vérifier les décisions de promotion
-    total_eleves = sum(c.eleves.count() for c in classes)
+    total_eleves = sum(len(c.eleves.all()) for c in classes)
     decisions_validees = DecisionPromotion.objects.filter(
         annee_scolaire=annee, validee=True
     ).count()

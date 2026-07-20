@@ -181,14 +181,16 @@ def consulter_notes(request):
     if mc_id:
         selected_mc = get_object_or_404(MatiereClasse, pk=mc_id)
         eleves = Student.objects.filter(classe=selected_mc.classe).order_by('nom', 'postnom')
+
+        # ── Optimisation : 1 requête pour toutes les notes, lookup par (eleve_id, periode) ──
+        notes_lookup = {
+            (n.eleve_id, n.periode): n.valeur
+            for n in Note.objects.filter(matiere_classe=selected_mc)
+        }
         for eleve in eleves:
             row = {'eleve': eleve, 'notes': {}}
             for code, label in periodes:
-                try:
-                    n = Note.objects.get(eleve=eleve, matiere_classe=selected_mc, periode=code)
-                    row['notes'][code] = n.valeur
-                except Note.DoesNotExist:
-                    row['notes'][code] = None
+                row['notes'][code] = notes_lookup.get((eleve.pk, code))
             eleves_notes.append(row)
 
     return render(request, 'grades/consulter_notes.html', {
@@ -246,6 +248,12 @@ def export_notes_excel(request):
 
     eleves = Student.objects.filter(classe=mc.classe).order_by('nom', 'postnom')
     school = SchoolInfo.get_info()
+
+    # ── Optimisation : 1 requête pour toutes les notes, lookup par (eleve_id, periode) ──
+    excel_notes_lookup = {
+        (n.eleve_id, n.periode): n.valeur
+        for n in Note.objects.filter(matiere_classe=mc)
+    }
 
     nb_cols = 4 + len(periodes)  # N°, Matricule, Nom, Postnom + périodes
     last_col_letter = get_column_letter(nb_cols)
@@ -401,15 +409,12 @@ def export_notes_excel(request):
             c.alignment = center if col_i == 1 else left
             c.border    = thin_border()
 
-        # Colonnes notes
+        # Colonnes notes  (lookup pré-chargé, aucune requête ici)
         for col_i, (code, _) in enumerate(periodes):
             col = 5 + col_i
             max_v = max_normal * 2 if code in ('EXAM1', 'EXAM2') else max_normal
-            try:
-                note = Note.objects.get(eleve=eleve, matiere_classe=mc, periode=code)
-                val  = float(note.valeur)
-            except Note.DoesNotExist:
-                val = None
+            raw = excel_notes_lookup.get((eleve.pk, code))
+            val  = float(raw) if raw is not None else None
 
             c = ws.cell(row=row, column=col, value=val)
             c.alignment = center
@@ -577,6 +582,12 @@ def import_notes_excel(request):
             eleves = Student.objects.filter(classe=mc.classe).order_by('nom', 'postnom')
             eleve_map = {e.matricule: e for e in eleves}
 
+            # ── Optimisation : 1 requête pour toutes les notes existantes ──
+            import_notes_lookup = {
+                (n.eleve_id, n.periode): n.valeur
+                for n in Note.objects.filter(matiere_classe=mc)
+            }
+
             preview_data = []
             errors = []
 
@@ -605,12 +616,8 @@ def import_notes_excel(request):
                     else:
                         new_dec = None
 
-                    # Valeur actuelle en base
-                    try:
-                        existing = Note.objects.get(eleve=eleve, matiere_classe=mc, periode=code)
-                        old_dec = existing.valeur
-                    except Note.DoesNotExist:
-                        old_dec = None
+                    # Valeur actuelle en base (lookup pré-chargé, aucune requête ici)
+                    old_dec = import_notes_lookup.get((eleve.pk, code))
 
                     changed = (new_dec != old_dec)
                     changes.append({

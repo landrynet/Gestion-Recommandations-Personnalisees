@@ -14,8 +14,6 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = ['*']
 
 # CSRF : domaines autorisés
-# En production sur PythonAnywhere, définir la variable DJANGO_SITE_URL
-# Exemple : export DJANGO_SITE_URL=https://educ.pythonanywhere.com
 _site_url = os.environ.get('DJANGO_SITE_URL', '').strip()
 
 CSRF_TRUSTED_ORIGINS = [
@@ -27,7 +25,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 if _site_url:
-    # Ajouter automatiquement l'URL de production (ex: https://educ.pythonanywhere.com)
     if not _site_url.startswith(('http://', 'https://')):
         _site_url = 'https://' + _site_url
     CSRF_TRUSTED_ORIGINS.append(_site_url)
@@ -89,14 +86,18 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+        'CONN_MAX_AGE': 60,  # Connexions persistantes — réduit la latence de reconnexion
+        'OPTIONS': {
+            'timeout': 20,
+        },
     }
 }
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 AUTHENTICATION_BACKENDS = [
-    'accounts.backends.EmailBackend',           # connexion par e-mail (prioritaire)
-    'django.contrib.auth.backends.ModelBackend', # fallback identifiant (comptes existants)
+    'accounts.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -124,8 +125,35 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 MESSAGE_STORAGE = 'django.contrib.messages.storage.session.SessionStorage'
 
-# ── Connexions DB persistantes (réduit la latence de reconnexion) ─────────────
-CONN_MAX_AGE = 60  # secondes
+# ── Cache (mémoire locale — suffisant pour 1 processus, remplacer par Redis en multi-worker) ──
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'sgn-cache',
+        'TIMEOUT': 300,          # 5 minutes par défaut
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+        },
+    }
+}
+
+# ── Sécurité des sessions ─────────────────────────────────────────────────────
+SESSION_COOKIE_HTTPONLY  = True          # JS ne peut pas lire le cookie de session
+SESSION_COOKIE_SAMESITE  = 'Lax'        # Protection CSRF renforcée
+SESSION_COOKIE_AGE       = 28800        # Expiration après 8 h d'inactivité (en secondes)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Persiste si "Se souvenir de moi" (à implémenter)
+
+# ── En-têtes de sécurité HTTP ─────────────────────────────────────────────────
+SECURE_BROWSER_XSS_FILTER    = True   # X-XSS-Protection (vieux navigateurs)
+SECURE_CONTENT_TYPE_NOSNIFF  = True   # X-Content-Type-Options: nosniff
+X_FRAME_OPTIONS              = 'SAMEORIGIN'  # Autorise les iframes du même domaine (PWA)
+
+# En production (HTTPS), activer ces paramètres :
+# SECURE_SSL_REDIRECT         = True
+# SECURE_HSTS_SECONDS         = 31536000
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SESSION_COOKIE_SECURE       = True
+# CSRF_COOKIE_SECURE          = True
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 import os as _os
@@ -159,22 +187,36 @@ LOGGING = {
             'level': 'INFO',
             'encoding': 'utf-8',
         },
+        'security_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'sgn_security.log'),
+            'maxBytes': 2 * 1024 * 1024,
+            'backupCount': 5,
+            'formatter': 'verbose',
+            'level': 'INFO',
+            'encoding': 'utf-8',
+        },
     },
     'loggers': {
-        # Erreurs Django (vues, templates, requêtes) → fichier
         'django.request': {
             'handlers': ['console', 'file'],
             'level': 'WARNING',
             'propagate': False,
         },
         'django.security': {
-            'handlers': ['file'],
+            'handlers': ['file', 'security_file'],
             'level': 'WARNING',
             'propagate': False,
         },
-        # Logger applicatif SGN → utilisé dans les vues avec logger = logging.getLogger('sgn')
+        # Logger applicatif SGN — utilisé avec logging.getLogger('sgn')
         'sgn': {
             'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        # Logger sécurité SGN — connexions, déconnexions, actions critiques
+        'sgn.security': {
+            'handlers': ['console', 'security_file'],
             'level': 'INFO',
             'propagate': False,
         },

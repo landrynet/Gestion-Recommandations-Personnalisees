@@ -2,6 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
+from django.db.models import Sum, Q, Value, DecimalField
+from django.db.models.functions import Coalesce
 from .models import ModeleBulletin, ModeleBulletinMatiere
 from accounts.views import prefet_required
 from grades.models import Note
@@ -140,25 +142,34 @@ def bulletin_eleve(request, pk, eleve_pk):
         messages.error(request, "Accès réservé au Préfet.")
         return redirect('dashboard')
     eleve = get_object_or_404(Student, pk=eleve_pk)
+
+    # ── Optimisation : 1 seule requête pour toutes les MatiereClasse de la classe ──
+    mc_map = {
+        mc.matiere_id: mc
+        for mc in MatiereClasse.objects.filter(classe=modele.classe).select_related('matiere')
+    }
+
+    # ── Optimisation : 1 seule requête pour toutes les notes de l'élève dans cette classe ──
+    notes_lookup = {
+        (n.matiere_classe_id, n.periode): n.valeur
+        for n in Note.objects.filter(eleve=eleve, matiere_classe__classe=modele.classe)
+    }
+
+    PERIODES = ('1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2', 'REPECHAGE')
     matieres_data = []
     total_obtenu  = Decimal('0')
     total_max_tg  = Decimal('0')
 
     for bm in modele.matieres.select_related('matiere').order_by('matiere__maxima', 'ordre'):
-        mat     = bm.matiere
-        periodes = ['1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2', 'REPECHAGE']
+        mat = bm.matiere
+        mc  = mc_map.get(mat.pk)
+
         notes_dict = {}
-        try:
-            mc = MatiereClasse.objects.get(matiere=mat, classe=modele.classe)
-            for p in periodes:
-                try:
-                    n = Note.objects.get(eleve=eleve, matiere_classe=mc, periode=p)
-                    notes_dict[p] = n.valeur
-                except Note.DoesNotExist:
-                    notes_dict[p] = None
-        except Exception:
-            for p in periodes:
-                notes_dict[p] = None
+        if mc:
+            for p in PERIODES:
+                notes_dict[p] = notes_lookup.get((mc.pk, p))
+        else:
+            notes_dict = {p: None for p in PERIODES}
 
         mx   = mat.maxima
         n1p  = notes_dict.get('1P')    or Decimal('0')
@@ -196,30 +207,40 @@ def bulletin_eleve(request, pk, eleve_pk):
     pourcentage = round(float(total_obtenu) / float(total_max_tg) * 100, 2) if total_max_tg else 0
     classement  = _get_classement(modele, eleve, total_obtenu)
     nb_eleves   = eleve.classe.eleves.count() if eleve.classe else 0
-    total_obtenu_fmt = round(float(total_obtenu), 1)
-    total_max_fmt    = round(float(total_max_tg), 1)
 
     return render(request, 'bulletin/bulletin_eleve.html', {
-        'modele':       modele,
-        'eleve':        eleve,
+        'modele':        modele,
+        'eleve':         eleve,
         'matieres_data': matieres_data,
-        'total_obtenu': total_obtenu_fmt,
-        'total_max':    total_max_fmt,
-        'pourcentage':  pourcentage,
-        'classement':   classement,
-        'nb_eleves':    nb_eleves,
+        'total_obtenu':  round(float(total_obtenu), 1),
+        'total_max':     round(float(total_max_tg), 1),
+        'pourcentage':   pourcentage,
+        'classement':    classement,
+        'nb_eleves':     nb_eleves,
     })
 
 
 def _get_classement(modele, eleve, my_score):
-    from django.db.models import Sum
-    scores = []
-    for e in Student.objects.filter(classe=modele.classe):
-        total = Note.objects.filter(
-            eleve=e, matiere_classe__classe=modele.classe
-        ).exclude(periode='REPECHAGE').aggregate(total=Sum('valeur'))['total'] or Decimal('0')
-        scores.append(total)
-    scores.sort(reverse=True)
+    """
+    Classement de l'élève dans sa classe.
+    Optimisé : 1 seule requête SQL avec agrégation au lieu d'une boucle N+1.
+    """
+    scores_qs = (
+        Student.objects.filter(classe=modele.classe)
+        .annotate(
+            total=Coalesce(
+                Sum(
+                    'notes__valeur',
+                    filter=Q(notes__matiere_classe__classe=modele.classe)
+                           & ~Q(notes__periode='REPECHAGE')
+                ),
+                Value(Decimal('0')),
+                output_field=DecimalField(max_digits=8, decimal_places=2),
+            )
+        )
+        .values_list('total', flat=True)
+    )
+    scores = sorted(scores_qs, reverse=True)
     try:
         return scores.index(my_score) + 1
     except ValueError:

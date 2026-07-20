@@ -1,3 +1,5 @@
+import logging
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -10,6 +12,9 @@ from .forms import (
 )
 from teachers.models import Teacher
 
+logger_sec = logging.getLogger('sgn.security')
+logger     = logging.getLogger('sgn')
+
 
 # ─── Authentification ─────────────────────────────────────────────────────────
 
@@ -20,16 +25,29 @@ def login_view(request):
         return redirect('dashboard')
 
     form = LoginForm(request, data=request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        user = form.get_user()
-        login(request, user)
-        if user.must_change_password:
-            return redirect('force_change_password')
-        return redirect('dashboard')
+    if request.method == 'POST':
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '?'))
+            logger_sec.info(
+                "CONNEXION user=%s role=%s ip=%s",
+                user.username, user.role, ip,
+            )
+            if user.must_change_password:
+                return redirect('force_change_password')
+            return redirect('dashboard')
+        else:
+            ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '?'))
+            identifier = request.POST.get('username', '')
+            logger_sec.warning("ECHEC_CONNEXION identifier=%s ip=%s", identifier, ip)
+
     return render(request, 'accounts/login.html', {'form': form})
 
 
 def logout_view(request):
+    if request.user.is_authenticated:
+        logger_sec.info("DECONNEXION user=%s", request.user.username)
     logout(request)
     return redirect('login')
 
