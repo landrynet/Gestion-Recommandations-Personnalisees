@@ -13,8 +13,8 @@ class AccountsConfig(AppConfig):
                 with connection.cursor() as cursor:
                     cursor.execute('PRAGMA journal_mode=WAL;')
                     cursor.execute('PRAGMA synchronous=NORMAL;')
-                    cursor.execute('PRAGMA cache_size=-10000;')   # ~10 MB cache
-                    cursor.execute('PRAGMA temp_store=MEMORY;')
-                    cursor.execute('PRAGMA mmap_size=268435456;')  # 256 MB mmap
+                    cursor.execute('PRAGMA cache_size=-2000;')    # ~2 MB cache (PythonAnywhere)
+                    cursor.execute('PRAGMA temp_store=FILE;')     # temp sur disque, pas en RAM
+                    cursor.execute('PRAGMA mmap_size=0;')         # désactivé (économise ~256 MB)
 
         connection_created.connect(_set_sqlite_pragmas)
