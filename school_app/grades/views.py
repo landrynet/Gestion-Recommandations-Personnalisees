@@ -11,7 +11,7 @@ from .models import Note
 from .forms import NoteForm
 from subjects.models import MatiereClasse
 from students.models import Student
-from classes.models import Classe
+from classes.models import Classe, AnneeScolaire, Semestre
 from school_settings.models import SchoolInfo
 
 
@@ -25,15 +25,24 @@ def saisie_notes(request):
         messages.info(request, "La saisie des notes est réservée aux enseignants.")
         return redirect('consulter_notes')
 
-    periodes = [
-        ('1P',        '1ère Période'),
-        ('2P',        '2ème Période'),
-        ('EXAM1',     'Examen S1'),
-        ('3P',        '3ème Période'),
-        ('4P',        '4ème Période'),
-        ('EXAM2',     'Examen S2'),
+    # ── Périodes selon le semestre actif (fallback : toutes) ──
+    _ALL_PERIODES = [
+        ('1P', '1ère Période'), ('2P', '2ème Période'), ('EXAM1', 'Examen S1'),
+        ('3P', '3ème Période'), ('4P', '4ème Période'), ('EXAM2', 'Examen S2'),
         ('REPECHAGE', 'Repêchage'),
     ]
+    semestre_actif = None
+    annee_active   = None
+    try:
+        annee_active   = AnneeScolaire.objects.get(active=True)
+        semestre_actif = annee_active.semestres.filter(statut='ACTIF').first()
+    except Exception:
+        pass
+
+    if semestre_actif:
+        periodes = semestre_actif.get_periodes_with_labels()
+    else:
+        periodes = _ALL_PERIODES
 
     try:
         teacher = user.teacher_profile
@@ -44,7 +53,11 @@ def saisie_notes(request):
         matieres_classes = MatiereClasse.objects.none()
 
     mc_id          = request.GET.get('mc', '')
-    periode        = request.GET.get('periode', '1P')
+    periode        = request.GET.get('periode', periodes[0][0] if periodes else '1P')
+    # S'assurer que la période sélectionnée appartient bien aux périodes visibles
+    _valid_codes = [p for p, _ in periodes]
+    if periode not in _valid_codes and _valid_codes:
+        periode = _valid_codes[0]
     matiere_classe = None
     eleves         = []
     form           = None
@@ -70,6 +83,14 @@ def saisie_notes(request):
         else:
             form = NoteForm(eleves=eleves, matiere_classe=matiere_classe, periode=periode)
 
+    # Vérifier si la période sélectionnée est verrouillée (semestre publié/archivé)
+    verrouille = False
+    if annee_active:
+        for _sem in annee_active.semestres.filter(statut__in=['PUBLIE', 'ARCHIVE']):
+            if periode in _sem.periodes:
+                verrouille = True
+                break
+
     return render(request, 'grades/saisie_notes.html', {
         'matieres_classes': matieres_classes,
         'mc_id':            mc_id,
@@ -78,6 +99,8 @@ def saisie_notes(request):
         'matiere_classe':   matiere_classe,
         'eleves':           eleves,
         'form':             form,
+        'semestre_actif':   semestre_actif,
+        'verrouille':       verrouille,
     })
 
 
@@ -94,6 +117,18 @@ def autosave_note(request):
 
         if not all([mc_id, eleve_id, periode]):
             return JsonResponse({'success': False, 'error': 'Données manquantes'}, status=400)
+
+        # Refuser si la période appartient à un semestre verrouillé
+        try:
+            _annee = AnneeScolaire.objects.get(active=True)
+            for _s in _annee.semestres.filter(statut__in=['PUBLIE', 'ARCHIVE']):
+                if periode in _s.periodes:
+                    return JsonResponse(
+                        {'success': False, 'error': 'Cette période est verrouillée (semestre publié).'},
+                        status=403
+                    )
+        except AnneeScolaire.DoesNotExist:
+            pass
 
         mc    = get_object_or_404(MatiereClasse, pk=mc_id)
         eleve = get_object_or_404(Student, pk=eleve_id)
@@ -143,11 +178,24 @@ def autosave_note(request):
 def consulter_notes(request):
     """Consultation des notes — préfet voit tout, enseignant voit ses classes."""
     user = request.user
-    periodes = [
+    _ALL_C = [
         ('1P', '1ère P'), ('2P', '2ème P'), ('EXAM1', 'Exam S1'),
         ('3P', '3ème P'), ('4P', '4ème P'), ('EXAM2', 'Exam S2'),
         ('REPECHAGE', 'Repêchage'),
     ]
+    if user.is_prefet():
+        periodes = _ALL_C
+    else:
+        try:
+            _annee_c = AnneeScolaire.objects.get(active=True)
+            _sem_c   = _annee_c.semestres.filter(statut='ACTIF').first()
+            if _sem_c:
+                _codes_c = set(_sem_c.periodes)
+                periodes = [(c, l) for c, l in _ALL_C if c in _codes_c]
+            else:
+                periodes = _ALL_C
+        except Exception:
+            periodes = _ALL_C
 
     if user.is_prefet():
         classes = Classe.objects.select_related('section', 'annee_scolaire')
@@ -730,3 +778,86 @@ def import_notes_preview(request):
 
     messages.success(request, f"{nb_saved} note(s) importée(s) avec succès pour {mc.matiere} — {mc.classe}.")
     return redirect(f'/notes/?mc={mc.pk}&periode=1P')
+
+
+# ─── Historique des semestres publiés (lecture seule) ─────────────────────────
+@login_required
+def historique_notes(request):
+    """Historique des semestres publiés/archivés — consultation en lecture seule.
+    Préfet : voit tout. Enseignant : ses propres matières uniquement.
+    """
+    user = request.user
+
+    try:
+        annee = AnneeScolaire.objects.get(active=True)
+    except AnneeScolaire.DoesNotExist:
+        annee = None
+
+    semestres = list(annee.semestres.filter(statut__in=['PUBLIE', 'ARCHIVE']).order_by('numero')) if annee else []
+
+    if user.is_prefet():
+        matieres_classes = MatiereClasse.objects.select_related(
+            'matiere', 'classe', 'classe__section', 'enseignant', 'enseignant__user'
+        ).order_by('classe__nom', 'matiere__nom')
+    else:
+        try:
+            matieres_classes = MatiereClasse.objects.filter(
+                enseignant=user.teacher_profile
+            ).select_related('matiere', 'classe', 'classe__section')
+        except Exception:
+            matieres_classes = MatiereClasse.objects.none()
+
+    semestre_id  = request.GET.get('semestre', '')
+    mc_id        = request.GET.get('mc', '')
+    semestre_sel = None
+    periodes     = []
+    eleves_notes = []
+    selected_mc  = None
+
+    if semestre_id and annee:
+        try:
+            semestre_sel = Semestre.objects.get(
+                pk=semestre_id, annee_scolaire=annee,
+                statut__in=['PUBLIE', 'ARCHIVE']
+            )
+            periodes = semestre_sel.get_periodes_with_labels()
+        except Semestre.DoesNotExist:
+            semestre_sel = None
+
+    if semestre_sel and mc_id:
+        selected_mc = get_object_or_404(MatiereClasse, pk=mc_id)
+        # Sécurité : l'enseignant ne peut consulter que ses propres matières
+        if not user.is_prefet():
+            try:
+                if selected_mc.enseignant != user.teacher_profile:
+                    messages.error(request, "Vous ne pouvez consulter que vos propres matières.")
+                    return redirect('historique_notes')
+            except Exception:
+                return redirect('historique_notes')
+
+        eleves = Student.objects.filter(classe=selected_mc.classe).order_by('nom', 'postnom')
+        periode_codes = [p for p, _ in periodes]
+        notes_lookup = {
+            (n.eleve_id, n.periode): n.valeur
+            for n in Note.objects.filter(
+                matiere_classe=selected_mc,
+                periode__in=periode_codes,
+            )
+        }
+        for eleve in eleves:
+            row = {'eleve': eleve, 'notes': {}}
+            for code, label in periodes:
+                row['notes'][code] = notes_lookup.get((eleve.pk, code))
+            eleves_notes.append(row)
+
+    return render(request, 'grades/historique.html', {
+        'semestres':       semestres,
+        'semestre_sel':    semestre_sel,
+        'semestre_id':     semestre_id,
+        'matieres_classes': matieres_classes,
+        'mc_id':           mc_id,
+        'selected_mc':     selected_mc,
+        'periodes':        periodes,
+        'eleves_notes':    eleves_notes,
+        'annee':           annee,
+    })

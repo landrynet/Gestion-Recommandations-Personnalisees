@@ -30,4 +30,12 @@ urlpatterns = [
     path('nouvelle/', views.classe_create, name='classe_create'),
     path('<int:pk>/modifier/', views.classe_update, name='classe_update'),
     path('<int:pk>/supprimer/', views.classe_delete, name='classe_delete'),
+
+    # Semestres
+    path('semestres/', views.semestre_list, name='semestre_list'),
+    path('semestres/initialiser/<int:annee_pk>/', views.semestre_initialiser, name='semestre_initialiser'),
+    path('semestres/<int:pk>/activer/', views.semestre_activer, name='semestre_activer'),
+    path('semestres/<int:pk>/publier/', views.semestre_publier, name='semestre_publier'),
+    path('semestres/<int:pk>/archiver/', views.semestre_archiver, name='semestre_archiver'),
+    path('semestres/<int:pk>/repechage/', views.semestre_toggle_repechage, name='semestre_toggle_repechage'),
 ]

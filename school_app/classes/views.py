@@ -4,8 +4,10 @@ from django.contrib import messages
 from django.urls import reverse
 from django.db import transaction
 from django.db.models import Count
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
-from .models import AnneeScolaire, Section, Classe, Niveau, DecisionPromotion, JournalOperation
+from .models import AnneeScolaire, Section, Classe, Niveau, DecisionPromotion, JournalOperation, Semestre
 from .forms import AnneeScolaireForm, SectionForm, ClasseForm, NiveauForm, DecisionPromotionForm
 from accounts.views import prefet_required
 
@@ -677,3 +679,135 @@ def classe_delete(request, pk):
         messages.success(request, "Classe supprimée.")
         return redirect('classe_list')
     return render(request, 'classes/confirm_delete.html', {'obj': classe, 'type': 'classe'})
+
+
+# ─── Gestion des semestres ────────────────────────────────────────────────────
+
+@login_required
+@prefet_required
+def semestre_list(request):
+    """Liste et gestion des semestres pour l'année scolaire active."""
+    try:
+        annee = AnneeScolaire.objects.get(active=True)
+    except AnneeScolaire.DoesNotExist:
+        messages.warning(request, "Aucune année scolaire active. Activez d'abord une année.")
+        return redirect('annee_list')
+    semestres = annee.semestres.all()
+    return render(request, 'classes/semestre_list.html', {
+        'annee':     annee,
+        'semestres': semestres,
+        's1':        semestres.filter(numero=1).first(),
+        's2':        semestres.filter(numero=2).first(),
+    })
+
+
+@login_required
+@prefet_required
+@require_POST
+def semestre_initialiser(request, annee_pk):
+    """Crée S1 et S2 pour l'année donnée s'ils n'existent pas."""
+    annee = get_object_or_404(AnneeScolaire, pk=annee_pk, cloturee=False)
+    created = 0
+    for numero in [1, 2]:
+        _, c = Semestre.objects.get_or_create(annee_scolaire=annee, numero=numero)
+        if c:
+            created += 1
+    if created:
+        messages.success(request, f"{created} semestre(s) initialisé(s) pour {annee}.")
+    else:
+        messages.info(request, "Les semestres sont déjà initialisés.")
+    return redirect('semestre_list')
+
+
+@login_required
+@prefet_required
+@require_POST
+def semestre_activer(request, pk):
+    """BROUILLON → ACTIF. Un seul semestre actif à la fois par année."""
+    semestre = get_object_or_404(Semestre, pk=pk)
+    annee    = semestre.annee_scolaire
+
+    if semestre.statut != 'BROUILLON':
+        messages.error(request, "Seul un semestre en état Brouillon peut être activé.")
+        return redirect('semestre_list')
+    if annee.semestres.filter(statut='ACTIF').exists():
+        messages.error(request, "Un semestre est déjà actif. Publiez-le d'abord avant d'en activer un autre.")
+        return redirect('semestre_list')
+    if semestre.numero == 2:
+        s1 = annee.semestres.filter(numero=1).first()
+        if s1 and s1.statut not in ('PUBLIE', 'ARCHIVE'):
+            messages.error(request, "Le Premier semestre doit être publié avant d'activer le Deuxième semestre.")
+            return redirect('semestre_list')
+
+    semestre.statut          = 'ACTIF'
+    semestre.date_activation = timezone.now()
+    semestre.save()
+    JournalOperation.objects.create(
+        type_operation='ACTIVATION_SEMESTRE',
+        annee_scolaire=annee,
+        utilisateur=request.user,
+        details={'semestre': semestre.numero},
+    )
+    messages.success(request, f"{semestre.get_numero_display()} activé avec succès.")
+    return redirect('semestre_list')
+
+
+@login_required
+@prefet_required
+@require_POST
+def semestre_publier(request, pk):
+    """ACTIF → PUBLIE — verrouille les notes de toutes les périodes du semestre."""
+    semestre = get_object_or_404(Semestre, pk=pk)
+
+    if semestre.statut != 'ACTIF':
+        messages.error(request, "Seul un semestre actif peut être publié.")
+        return redirect('semestre_list')
+
+    semestre.statut           = 'PUBLIE'
+    semestre.date_publication = timezone.now()
+    semestre.publie_par       = request.user
+    semestre.save()
+    JournalOperation.objects.create(
+        type_operation='PUBLICATION_SEMESTRE',
+        annee_scolaire=semestre.annee_scolaire,
+        utilisateur=request.user,
+        details={'semestre': semestre.numero, 'periodes': semestre.periodes},
+    )
+    messages.success(request, f"{semestre.get_numero_display()} publié — les notes sont désormais verrouillées.")
+    return redirect('semestre_list')
+
+
+@login_required
+@prefet_required
+@require_POST
+def semestre_archiver(request, pk):
+    """PUBLIE → ARCHIVE."""
+    semestre = get_object_or_404(Semestre, pk=pk)
+
+    if semestre.statut != 'PUBLIE':
+        messages.error(request, "Seul un semestre publié peut être archivé.")
+        return redirect('semestre_list')
+
+    semestre.statut         = 'ARCHIVE'
+    semestre.date_archivage = timezone.now()
+    semestre.save()
+    messages.success(request, f"{semestre.get_numero_display()} archivé.")
+    return redirect('semestre_list')
+
+
+@login_required
+@prefet_required
+@require_POST
+def semestre_toggle_repechage(request, pk):
+    """Activer/désactiver le repêchage pour le Deuxième semestre."""
+    semestre = get_object_or_404(Semestre, pk=pk, numero=2)
+
+    if semestre.statut != 'ACTIF':
+        messages.error(request, "Le repêchage ne peut être modifié que sur un semestre actif.")
+        return redirect('semestre_list')
+
+    semestre.repechage_actif = not semestre.repechage_actif
+    semestre.save()
+    etat = "activé" if semestre.repechage_actif else "désactivé"
+    messages.success(request, f"Repêchage {etat}.")
+    return redirect('semestre_list')

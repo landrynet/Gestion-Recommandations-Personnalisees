@@ -156,15 +156,82 @@ class DecisionPromotion(models.Model):
         return f"{self.eleve} — {self.get_decision_display()} ({self.annee_scolaire})"
 
 
+class Semestre(models.Model):
+    """Semestre pédagogique — gère le cycle de vie des périodes d'évaluation."""
+
+    STATUT_CHOICES = [
+        ('BROUILLON', 'Brouillon'),
+        ('ACTIF',     'Actif'),
+        ('PUBLIE',    'Publié'),
+        ('ARCHIVE',   'Archivé'),
+    ]
+    NUMERO_CHOICES = [(1, 'Premier semestre'), (2, 'Deuxième semestre')]
+
+    # Périodes fixes par semestre (repêchage ajouté dynamiquement pour S2)
+    PERIODES_PAR_NUMERO = {
+        1: ['1P', '2P', 'EXAM1'],
+        2: ['3P', '4P', 'EXAM2'],
+    }
+    PERIODE_LABELS = {
+        '1P': '1ère Période', '2P': '2ème Période', 'EXAM1': 'Examen S1',
+        '3P': '3ème Période', '4P': '4ème Période', 'EXAM2': 'Examen S2',
+        'REPECHAGE': 'Repêchage',
+    }
+
+    annee_scolaire  = models.ForeignKey(
+        AnneeScolaire, on_delete=models.CASCADE, related_name='semestres'
+    )
+    numero          = models.PositiveSmallIntegerField(choices=NUMERO_CHOICES)
+    statut          = models.CharField(max_length=20, choices=STATUT_CHOICES, default='BROUILLON')
+    repechage_actif = models.BooleanField(default=False, verbose_name="Repêchage actif")
+    date_activation = models.DateTimeField(null=True, blank=True)
+    date_publication= models.DateTimeField(null=True, blank=True)
+    date_archivage  = models.DateTimeField(null=True, blank=True)
+    publie_par      = models.ForeignKey(
+        'accounts.CustomUser', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='semestres_publies'
+    )
+
+    class Meta:
+        unique_together = ['annee_scolaire', 'numero']
+        ordering        = ['numero']
+        verbose_name    = "Semestre"
+        verbose_name_plural = "Semestres"
+
+    def __str__(self):
+        return f"{self.get_numero_display()} — {self.annee_scolaire}"
+
+    @property
+    def periodes(self):
+        """Retourne la liste des codes de périodes pour ce semestre."""
+        base = list(self.PERIODES_PAR_NUMERO.get(self.numero, []))
+        if self.numero == 2 and self.repechage_actif:
+            base.append('REPECHAGE')
+        return base
+
+    @property
+    def est_verrouille(self):
+        return self.statut in ('PUBLIE', 'ARCHIVE')
+
+    @property
+    def est_actif(self):
+        return self.statut == 'ACTIF'
+
+    def get_periodes_with_labels(self):
+        return [(p, self.PERIODE_LABELS.get(p, p)) for p in self.periodes]
+
+
 class JournalOperation(models.Model):
     """Journal d'audit des opérations importantes sur les années scolaires."""
     TYPE_CHOICES = [
-        ('CREATION_ANNEE', "Création d'une année"),
-        ('ACTIVATION_ANNEE', "Activation d'une année"),
-        ('CLOTURE_ANNEE', "Clôture d'une année"),
-        ('MIGRATION', "Migration des données"),
-        ('PROMOTION', "Promotion des élèves"),
-        ('ARCHIVAGE', "Archivage"),
+        ('CREATION_ANNEE',       "Création d'une année"),
+        ('ACTIVATION_ANNEE',     "Activation d'une année"),
+        ('CLOTURE_ANNEE',        "Clôture d'une année"),
+        ('MIGRATION',            "Migration des données"),
+        ('PROMOTION',            "Promotion des élèves"),
+        ('ARCHIVAGE',            "Archivage"),
+        ('ACTIVATION_SEMESTRE',  "Activation d'un semestre"),
+        ('PUBLICATION_SEMESTRE', "Publication d'un semestre"),
     ]
 
     type_operation = models.CharField(max_length=30, choices=TYPE_CHOICES)

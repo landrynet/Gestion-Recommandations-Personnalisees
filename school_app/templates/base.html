@@ -76,6 +76,9 @@
     <a href="{% url 'annee_list' %}" class="nav-link {% if 'annee' in request.resolver_match.url_name or 'cloture' in request.resolver_match.url_name or 'promotion' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-calendar3-fill"></i><span>Gestion des années</span>
     </a>
+    <a href="{% url 'semestre_list' %}" class="nav-link {% if 'semestre' in request.resolver_match.url_name %}active{% endif %}">
+      <i class="bi bi-calendar2-week-fill"></i><span>Semestres</span>
+    </a>
     <a href="{% url 'niveau_list' %}" class="nav-link {% if 'niveau' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-layers-fill"></i><span>Niveaux</span>
     </a>
@@ -162,6 +165,9 @@
     </a>
     <a href="{% url 'consulter_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'consulter_notes' %}active{% endif %}">
       <i class="bi bi-table"></i><span>Mes notes saisies</span>
+    </a>
+    <a href="{% url 'historique_notes' %}" class="nav-link {% if request.resolver_match.url_name == 'historique_notes' %}active{% endif %}">
+      <i class="bi bi-clock-history"></i><span>Historique</span>
     </a>
   </nav>
 

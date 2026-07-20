@@ -19,6 +19,21 @@
   </div>
 </div>
 
+<!-- Bandeau semestre actif / verrouillé -->
+{% if semestre_actif %}
+<div class="alert alert-success d-flex align-items-center gap-2 py-2 mb-3">
+  <i class="bi bi-play-circle-fill text-success"></i>
+  <span class="small"><strong>{{ semestre_actif.get_numero_display }}</strong> en cours — vous saisissez les notes pour :
+    {% for code, label in periodes %}<span class="badge bg-light text-dark border ms-1">{{ label }}</span>{% endfor %}
+  </span>
+</div>
+{% elif verrouille %}
+<div class="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3">
+  <i class="bi bi-lock-fill"></i>
+  <span class="small">Cette période appartient à un semestre publié — les notes sont en <strong>lecture seule</strong>.</span>
+</div>
+{% endif %}
+
 <!-- Indicateur auto-save -->
 <div id="autosave-bar" class="d-none position-fixed top-0 end-0 m-3" style="z-index:9999">
   <div id="autosave-msg" class="alert py-2 px-3 shadow-sm small mb-0" style="min-width:200px"></div>
