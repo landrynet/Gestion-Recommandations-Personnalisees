@@ -11,18 +11,51 @@
     <i class="bi bi-arrow-left me-1"></i>Retour
   </a>
 </div>
-<div class="card" style="max-width:800px">
+<div class="card" style="max-width:860px">
   <div class="card-body">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <div class="row g-3">
+
+        {% if obj %}
+        <!-- Photo actuelle (mode édition) -->
+        <div class="col-12">
+          <div class="d-flex align-items-center gap-3 p-3 bg-light rounded mb-1">
+            {% if obj.photo %}
+            <img src="{{ obj.photo.url }}" alt="Photo de {{ obj.nom_complet }}"
+                 class="rounded-circle border"
+                 style="width:72px;height:72px;object-fit:cover;">
+            <div>
+              <div class="fw-semibold">{{ obj.nom_complet }}</div>
+              <div class="small text-muted mb-1">Photo actuelle</div>
+              <label class="form-label small mb-1">Changer la photo :</label>
+              {{ form.photo }}
+            </div>
+            {% else %}
+            <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center border"
+                 style="width:72px;height:72px;min-width:72px;">
+              <i class="bi bi-person-fill text-white fs-2"></i>
+            </div>
+            <div>
+              <div class="fw-semibold">{{ obj.nom_complet }}</div>
+              <div class="small text-muted mb-1">Aucune photo enregistrée</div>
+              <label class="form-label small mb-1">Ajouter une photo :</label>
+              {{ form.photo }}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
         <div class="col-md-4">
           <label class="form-label">Matricule *</label>
           {{ form.matricule }}
+          {% for e in form.matricule.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
         </div>
         <div class="col-md-4">
           <label class="form-label">Nom *</label>
           {{ form.nom }}
+          {% for e in form.nom.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
         </div>
         <div class="col-md-4">
           <label class="form-label">Postnom</label>
@@ -35,14 +68,17 @@
         <div class="col-md-4">
           <label class="form-label">Sexe *</label>
           {{ form.sexe }}
+          {% for e in form.sexe.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
         </div>
         <div class="col-md-4">
           <label class="form-label">Date de naissance *</label>
           {{ form.date_naissance }}
+          {% for e in form.date_naissance.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
         </div>
         <div class="col-md-6">
           <label class="form-label">Lieu de naissance *</label>
           {{ form.lieu_naissance }}
+          {% for e in form.lieu_naissance.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
         </div>
         <div class="col-md-6">
           <label class="form-label">Téléphone</label>
@@ -59,17 +95,24 @@
         <div class="col-md-6">
           <label class="form-label">Classe</label>
           {{ form.classe }}
+          {% for e in form.classe.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
         </div>
-        <div class="col-md-6">
+
+        {% if not obj %}
+        <!-- Photo (mode création) -->
+        <div class="col-12">
           <label class="form-label">Photo</label>
           {{ form.photo }}
+          <div class="form-text">Format : JPG, PNG. Taille recommandée : carrée.</div>
         </div>
-      </div>
-      {% for field in form %}
-        {% if field.errors %}
-        <div class="text-danger small mt-2">{{ field.label }}: {{ field.errors|join:", " }}</div>
         {% endif %}
+
+      </div>
+
+      {% for e in form.non_field_errors %}
+      <div class="alert alert-danger small mt-3 py-2">{{ e }}</div>
       {% endfor %}
+
       <div class="mt-4 d-flex gap-2">
         <button type="submit" class="btn btn-primary">
           <i class="bi bi-save me-1"></i>Enregistrer

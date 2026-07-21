@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load subject_tags %}
 {% block title %}Affectations — Matières par classe{% endblock %}
 {% block breadcrumb %}
 <li class="breadcrumb-item"><a href="{% url 'matiere_list' %}">Matières</a></li>
@@ -78,26 +79,23 @@
             <tr>
               <td class="fw-medium">{{ aff.matiere.nom }}</td>
               <td>
-                <span class="badge
-                  {% if aff.matiere.maxima == 20 %}bg-warning text-dark
-                  {% elif aff.matiere.maxima == 30 %}bg-info text-dark
-                  {% else %}bg-danger{% endif %}">
+                <span class="badge {{ maxima_colors|dict_get:aff.matiere.maxima }}">
                   MAXIMA {{ aff.matiere.maxima }}
                 </span>
               </td>
               <td>
                 {% if aff.enseignant %}
-                  <span class="fw-medium text-success"><i class="bi bi-person-check me-1"></i>{{ aff.enseignant.nom_complet }}</span>
+                  <span class="fw-medium">{{ aff.enseignant.user.get_full_name }}</span>
                 {% else %}
-                  <span class="text-danger small"><i class="bi bi-person-x me-1"></i>Non assigné</span>
+                  <span class="text-muted small"><i class="bi bi-person-dash me-1"></i>Non assigné</span>
                 {% endif %}
               </td>
               <td class="text-end">
-                <a href="{% url 'affectation_update' aff.pk %}" class="btn btn-sm btn-outline-primary me-1" title="Modifier l'enseignant">
-                  <i class="bi bi-person-gear"></i>
+                <a href="{% url 'affectation_update' aff.pk %}" class="btn btn-sm btn-outline-primary me-1" title="Modifier">
+                  <i class="bi bi-pencil"></i>
                 </a>
-                <a href="{% url 'affectation_delete' aff.pk %}" class="btn btn-sm btn-outline-danger" title="Retirer de la classe">
-                  <i class="bi bi-x-lg"></i>
+                <a href="{% url 'affectation_delete' aff.pk %}" class="btn btn-sm btn-outline-danger" title="Retirer">
+                  <i class="bi bi-trash"></i>
                 </a>
               </td>
             </tr>
@@ -109,52 +107,32 @@
     {% else %}
     <div class="alert alert-warning">
       <i class="bi bi-exclamation-triangle me-2"></i>
-      Aucune matière affectée à <strong>{{ selected_classe }}</strong> pour l'instant.
+      Aucune matière n'est encore affectée à cette classe.
     </div>
     {% endif %}
 
     <!-- Matières disponibles à ajouter -->
-    {% if matieres_non_20 or matieres_non_30 or matieres_non_60 %}
+    {% if matieres_disponibles %}
     <div class="card">
-      <div class="card-header fw-bold"><i class="bi bi-plus-circle me-1 text-primary"></i>Ajouter des matières à {{ selected_classe }}</div>
+      <div class="card-header">
+        <i class="bi bi-plus-circle text-success me-2"></i>Ajouter des matières
+      </div>
       <div class="card-body">
         <form method="post" action="{% url 'affectation_rapide' %}">
           {% csrf_token %}
           <input type="hidden" name="classe_id" value="{{ selected_classe.pk }}">
           <div class="row g-3">
-            {% if matieres_non_20 %}
+            {% for grp in matieres_disponibles %}
             <div class="col-md-4">
-              <h6 class="fw-bold" style="color:#D97706">MAXIMA 20</h6>
-              {% for m in matieres_non_20 %}
+              <h6 class="fw-bold" style="color:{{ grp.color.text }}">MAXIMA {{ grp.valeur }}</h6>
+              {% for m in grp.matieres %}
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="matieres" value="{{ m.pk }}" id="nadd_{{ m.pk }}">
                 <label class="form-check-label small" for="nadd_{{ m.pk }}">{{ m.nom }}</label>
               </div>
               {% endfor %}
             </div>
-            {% endif %}
-            {% if matieres_non_30 %}
-            <div class="col-md-4">
-              <h6 class="fw-bold" style="color:#0891B2">MAXIMA 30</h6>
-              {% for m in matieres_non_30 %}
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="matieres" value="{{ m.pk }}" id="nadd_{{ m.pk }}">
-                <label class="form-check-label small" for="nadd_{{ m.pk }}">{{ m.nom }}</label>
-              </div>
-              {% endfor %}
-            </div>
-            {% endif %}
-            {% if matieres_non_60 %}
-            <div class="col-md-4">
-              <h6 class="fw-bold" style="color:#DC2626">MAXIMA 60</h6>
-              {% for m in matieres_non_60 %}
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="matieres" value="{{ m.pk }}" id="nadd_{{ m.pk }}">
-                <label class="form-check-label small" for="nadd_{{ m.pk }}">{{ m.nom }}</label>
-              </div>
-              {% endfor %}
-            </div>
-            {% endif %}
+            {% endfor %}
           </div>
           <button type="submit" class="btn btn-success mt-3 btn-sm">
             <i class="bi bi-plus-circle me-1"></i>Ajouter les matières cochées

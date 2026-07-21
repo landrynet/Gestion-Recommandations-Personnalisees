@@ -43,6 +43,27 @@ class CodeAccesForm(forms.Form):
     )
 
 
+class AccesManuelForm(forms.Form):
+    nom_complet = forms.CharField(
+        label="Nom complet de l'élève",
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex : KABONGO Jean-Pierre',
+            'autocomplete': 'off',
+        }),
+        min_length=2, max_length=200
+    )
+    code = forms.CharField(
+        label="Code d'accès",
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Code créé lors de la première connexion',
+            'autocomplete': 'current-password',
+        }),
+        min_length=4, max_length=20
+    )
+
+
 class PortailConfigForm(forms.ModelForm):
     class Meta:
         model = PortailConfig

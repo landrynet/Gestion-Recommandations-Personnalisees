@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     # ── Public (parents) ──────────────────────────────────────────────────
     path('', views.portail_accueil, name='portail_accueil'),
+    path('acces-manuel/', views.portail_acces_manuel, name='portail_acces_manuel'),
     path('scan/<str:token>/', views.portail_scan, name='portail_scan'),
     path('resultats/<str:token>/', views.portail_resultats, name='portail_resultats'),
     path('bulletin/<str:token>/', views.portail_bulletin_pdf, name='portail_bulletin_pdf'),

@@ -2,6 +2,10 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Maxima
+    path('maxima/', views.maxima_list, name='maxima_list'),
+    path('maxima/<int:pk>/supprimer/', views.maxima_delete, name='maxima_delete'),
+    # Matières globales
     path('', views.matiere_list, name='matiere_list'),
     path('nouvelle/', views.matiere_create, name='matiere_create'),
     path('<int:pk>/modifier/', views.matiere_update, name='matiere_update'),

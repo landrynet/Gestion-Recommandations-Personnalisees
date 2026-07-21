@@ -18,7 +18,7 @@ from school_settings.models import SchoolInfo
 from students.models import Student
 from subjects.models import MatiereClasse
 
-from .forms import ActivationForm, CodeAccesForm, PortailConfigForm
+from .forms import ActivationForm, AccesManuelForm, CodeAccesForm, PortailConfigForm
 from .models import PortailAcces, PortailConfig, PublicationResultats
 
 PERIODES_NORMALES = ['1P', '2P', 'EXAM1', '3P', '4P', 'EXAM2']
@@ -118,7 +118,64 @@ def _calc_resultats_par_periode(modele, eleve, periodes_a_afficher):
 def portail_accueil(request):
     config = PortailConfig.get_config()
     school = SchoolInfo.get_info()
-    return render(request, 'portail/accueil.html', {'config': config, 'school': school})
+    from .forms import AccesManuelForm
+    form = AccesManuelForm()
+    return render(request, 'portail/accueil.html', {
+        'config': config, 'school': school, 'form': form,
+    })
+
+
+def portail_acces_manuel(request):
+    """Accès manuel au portail : recherche par nom complet + code d'accès."""
+    from .forms import AccesManuelForm
+    config = PortailConfig.get_config()
+    school = SchoolInfo.get_info()
+
+    if request.method != 'POST':
+        return redirect('portail_accueil')
+
+    form = AccesManuelForm(request.POST)
+    if not form.is_valid():
+        return render(request, 'portail/accueil.html', {
+            'config': config, 'school': school,
+            'form': form, 'show_manual': True,
+        })
+
+    nom = form.cleaned_data['nom_complet'].strip()
+    code = form.cleaned_data['code']
+
+    # Recherche insensible à la casse par nom complet (nom + postnom + prénom)
+    from django.db.models import Q, Value
+    from django.db.models.functions import Concat
+    from django.db.models import CharField
+
+    acces_qs = PortailAcces.objects.filter(active=True).select_related('eleve')
+    match = None
+    for acces in acces_qs:
+        eleve = acces.eleve
+        candidats = [
+            eleve.nom_complet,
+            f"{eleve.nom} {eleve.prenom}",
+            f"{eleve.prenom} {eleve.nom}",
+            eleve.nom,
+        ]
+        if any(nom.lower() == c.lower() for c in candidats if c.strip()):
+            if acces.verifier_code(code):
+                match = acces
+                break
+
+    if match:
+        match.tentatives_echec = 0
+        match.bloque_jusqu = None
+        match.save(update_fields=['tentatives_echec', 'bloque_jusqu'])
+        request.session[SESSION_KEY] = str(match.token)
+        return redirect('portail_resultats', token=match.token)
+
+    messages.error(request, "Élève introuvable ou code d'accès incorrect. Vérifiez le nom complet et réessayez.")
+    return render(request, 'portail/accueil.html', {
+        'config': config, 'school': school,
+        'form': form, 'show_manual': True,
+    })
 
 
 def portail_scan(request, token):

@@ -1,14 +1,22 @@
 from django.db import models
 
 
+class Maxima(models.Model):
+    """Valeur de maxima configurable par le préfet (ex: 10, 20, 30, 60, 100…)."""
+    valeur = models.PositiveIntegerField(unique=True)
+
+    class Meta:
+        ordering = ['valeur']
+        verbose_name = "Maxima"
+        verbose_name_plural = "Maxima"
+
+    def __str__(self):
+        return f"MAXIMA {self.valeur}"
+
+
 class Matiere(models.Model):
-    MAXIMA_CHOICES = [
-        (20, 'MAXIMA 20'),
-        (30, 'MAXIMA 30'),
-        (60, 'MAXIMA 60'),
-    ]
     nom = models.CharField(max_length=100, unique=True)
-    maxima = models.IntegerField(choices=MAXIMA_CHOICES, default=20)
+    maxima = models.PositiveIntegerField(default=20)
 
     class Meta:
         ordering = ['maxima', 'nom']

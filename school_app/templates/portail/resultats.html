@@ -38,7 +38,19 @@
   <!-- ── En-tête élève ──────────────────────────────────────── -->
   <div class="res-info-card">
     <div class="res-info-header">
-      <span><i class="bi bi-person-circle me-2"></i>{{ eleve.nom_complet }}</span>
+      <span class="d-flex align-items-center gap-2">
+        {% if eleve.photo %}
+        <img src="{{ eleve.photo.url }}" alt="{{ eleve.nom_complet }}"
+             class="rounded-circle border border-white"
+             style="width:34px;height:34px;object-fit:cover;flex-shrink:0">
+        {% else %}
+        <span class="rounded-circle d-inline-flex align-items-center justify-content-center bg-white"
+              style="width:34px;height:34px;min-width:34px;font-weight:700;font-size:.9rem;color:var(--p-secondary)">
+          {{ eleve.nom|first|upper }}
+        </span>
+        {% endif %}
+        {{ eleve.nom_complet }}
+      </span>
       <div class="d-flex gap-2">
         {% if has_archives %}
         <a href="{% url 'portail_archives' token=acces.token %}" class="btn btn-deconnexion">

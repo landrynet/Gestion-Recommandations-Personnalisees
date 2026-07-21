@@ -69,7 +69,7 @@
     <a href="{% url 'classe_list' %}" class="nav-link {% if 'classe' in request.resolver_match.url_name or 'section' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-building-fill"></i><span>Classes</span>
     </a>
-    <a href="{% url 'matiere_list' %}" class="nav-link {% if 'matiere' in request.resolver_match.url_name or 'affectation' in request.resolver_match.url_name %}active{% endif %}">
+    <a href="{% url 'matiere_list' %}" class="nav-link {% if 'matiere' in request.resolver_match.url_name or 'affectation' in request.resolver_match.url_name or 'maxima' in request.resolver_match.url_name %}active{% endif %}">
       <i class="bi bi-book-fill"></i><span>Matières</span>
     </a>
 

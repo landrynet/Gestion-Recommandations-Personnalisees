@@ -2,3 +2,4 @@
 - [Portail parents](portail-parents.md) — nouvelles apps portail + carte_eleve, flux QR → activation → code → résultats
 - [Corrections sécurité UI](security-ui-fixes.md) — sidebar, rôles, mot de passe enseignants corrigés
 - [Phase 3 implementation](phase3-implementation.md) — Niveau, clôture, promotions, archives portail, journal des opérations
+- [Phase stabilisation](phase-stabilisation.md) — Maxima CRUD, photo élève, reset intégré, accès manuel portail, état des 15 points
