@@ -21,9 +21,8 @@
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search text-muted"></i></span>
           <input type="text" name="q" class="form-control border-start-0 ps-0"
-                 placeholder="Rechercher par nom ou email…"
+                 placeholder="Rechercher par nom, post-nom ou email…"
                  value="{{ q }}"
-                 data-live-search="tbl-teachers"
                  autocomplete="off">
         </div>
       </div>
@@ -37,14 +36,16 @@
 
 <!-- Tableau -->
 <div class="card">
-  <div class="card-header">
-    <span><i class="bi bi-person-badge-fill me-2 text-primary"></i><span data-live-count>{{ teachers.count }}</span> enseignant{{ teachers.count|pluralize }}</span>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-person-badge-fill me-2 text-primary"></i>{{ total }} enseignant{{ total|pluralize }}</span>
+    <small class="text-muted">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</small>
   </div>
   <div class="card-body p-0">
     <table class="table table-hover" id="tbl-teachers">
       <thead>
         <tr>
           <th>Enseignant</th>
+          <th>Genre</th>
           <th>Email</th>
           <th>Téléphone</th>
           <th class="text-center">Matières</th>
@@ -69,6 +70,11 @@
               </div>
             </div>
           </td>
+          <td class="text-muted" style="font-size:.855rem;">
+            {% if t.genre == 'M' %}<span class="badge bg-info text-white">Masculin</span>
+            {% elif t.genre == 'F' %}<span class="badge bg-pink text-white" style="background:#d63384!important;">Féminin</span>
+            {% else %}—{% endif %}
+          </td>
           <td class="text-muted" style="font-size:.855rem;">{{ t.email|default:"—" }}</td>
           <td class="text-muted" style="font-size:.855rem;">{{ t.telephone|default:"—" }}</td>
           <td class="text-center">
@@ -83,8 +89,8 @@
           </td>
         </tr>
         {% empty %}
-        <tr data-empty>
-          <td colspan="5" class="text-center py-5">
+        <tr>
+          <td colspan="6" class="text-center py-5">
             <div class="mb-2" style="font-size:2rem;opacity:.3;"><i class="bi bi-person-badge"></i></div>
             <div class="text-muted">Aucun enseignant enregistré</div>
             <a href="{% url 'teacher_create' %}" class="btn btn-sm btn-primary mt-2">Ajouter le premier enseignant</a>
@@ -94,5 +100,47 @@
       </tbody>
     </table>
   </div>
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="card-footer d-flex justify-content-between align-items-center py-2">
+    <small class="text-muted">
+      Affichage {{ page_obj.start_index }}–{{ page_obj.end_index }} sur {{ total }}
+    </small>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i></span></li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}
+            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+            <li class="page-item">
+              <a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ num }}">{{ num }}</a>
+            </li>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-right"></i></span></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

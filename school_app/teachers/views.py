@@ -1,10 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Teacher
 from .forms import TeacherForm
 from accounts.views import prefet_required
+
+PER_PAGE = 15
 
 
 @login_required
@@ -14,10 +17,19 @@ def teacher_list(request):
     teachers = Teacher.objects.select_related('user')
     if q:
         teachers = teachers.filter(
-            Q(user__first_name__icontains=q) | Q(user__last_name__icontains=q) |
+            Q(user__first_name__icontains=q) |
+            Q(postnom__icontains=q) |
+            Q(user__last_name__icontains=q) |
             Q(user__email__icontains=q)
         )
-    return render(request, 'teachers/teacher_list.html', {'teachers': teachers, 'q': q})
+    paginator = Paginator(teachers, PER_PAGE)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'teachers/teacher_list.html', {
+        'teachers': page_obj,
+        'page_obj': page_obj,
+        'q': q,
+        'total': paginator.count,
+    })
 
 
 @login_required

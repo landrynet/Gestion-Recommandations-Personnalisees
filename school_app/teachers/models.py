@@ -3,7 +3,14 @@ from accounts.models import CustomUser
 
 
 class Teacher(models.Model):
+    GENRE_CHOICES = [
+        ('M', 'Masculin'),
+        ('F', 'Féminin'),
+    ]
+
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='teacher_profile')
+    postnom = models.CharField('Post-nom', max_length=100, blank=True)
+    genre = models.CharField('Genre', max_length=1, choices=GENRE_CHOICES, blank=True)
     telephone = models.CharField(max_length=20, blank=True)
 
     class Meta:
@@ -16,7 +23,9 @@ class Teacher(models.Model):
 
     @property
     def nom_complet(self):
-        return self.user.get_full_name() or self.user.username
+        parts = [self.user.first_name, self.postnom, self.user.last_name]
+        full = ' '.join(p for p in parts if p)
+        return full or self.user.username
 
     @property
     def email(self):

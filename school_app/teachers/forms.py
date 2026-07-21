@@ -4,10 +4,16 @@ from .models import Teacher
 
 
 class TeacherForm(forms.Form):
+    GENRE_CHOICES = [('', '— Choisir —'), ('M', 'Masculin'), ('F', 'Féminin')]
+
     first_name = forms.CharField(label='Prénom', max_length=100,
                                   widget=forms.TextInput(attrs={'class': 'form-control'}))
-    last_name = forms.CharField(label='Nom', max_length=100,
+    postnom = forms.CharField(label='Post-nom', max_length=100, required=False,
+                               widget=forms.TextInput(attrs={'class': 'form-control'}))
+    last_name = forms.CharField(label='Nom de famille', max_length=100,
                                  widget=forms.TextInput(attrs={'class': 'form-control'}))
+    genre = forms.ChoiceField(label='Genre', choices=GENRE_CHOICES, required=False,
+                               widget=forms.Select(attrs={'class': 'form-select'}))
     username = forms.CharField(label="Nom d'utilisateur", max_length=150,
                                 widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(label='Email', required=False,
@@ -25,7 +31,9 @@ class TeacherForm(forms.Form):
         self.instance = instance
         if instance:
             self.fields['first_name'].initial  = instance.user.first_name
+            self.fields['postnom'].initial     = instance.postnom
             self.fields['last_name'].initial   = instance.user.last_name
+            self.fields['genre'].initial       = instance.genre
             self.fields['username'].initial    = instance.user.username
             self.fields['email'].initial       = instance.user.email
             self.fields['telephone'].initial   = instance.telephone
@@ -55,6 +63,8 @@ class TeacherForm(forms.Form):
             if data.get('photo_profil'):
                 user.photo_profil = data['photo_profil']
             user.save()
+            self.instance.postnom   = data.get('postnom', '')
+            self.instance.genre     = data.get('genre', '')
             self.instance.telephone = data['telephone']
             self.instance.save()
             return self.instance, None
@@ -72,5 +82,10 @@ class TeacherForm(forms.Form):
                 user.photo_profil = data['photo_profil']
             user.must_change_password = True
             user.save(update_fields=['must_change_password', 'photo_profil'])
-            teacher = Teacher.objects.create(user=user, telephone=data['telephone'])
+            teacher = Teacher.objects.create(
+                user=user,
+                postnom=data.get('postnom', ''),
+                genre=data.get('genre', ''),
+                telephone=data['telephone'],
+            )
             return teacher, temp_password

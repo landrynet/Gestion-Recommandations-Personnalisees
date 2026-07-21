@@ -40,7 +40,6 @@
   <a href="{% url 'teacher_list' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i>Retour</a>
 </div>
 
-{# Le form enveloppe TOUTE la ligne pour inclure le champ photo #}
 <form method="post" enctype="multipart/form-data" style="max-width: 860px;">
   {% csrf_token %}
   <div class="row g-4">
@@ -76,30 +75,46 @@
         <div class="card-header">Informations personnelles</div>
         <div class="card-body">
           <div class="row g-3">
-            <div class="col-md-6">
+            <!-- Ligne 1 : Prénom / Post-nom / Nom -->
+            <div class="col-md-4">
               <label class="form-label">Prénom *</label>
               {{ form.first_name }}
               {% if form.first_name.errors %}<div class="text-danger small mt-1">{{ form.first_name.errors.0 }}</div>{% endif %}
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Nom *</label>
+            <div class="col-md-4">
+              <label class="form-label">Post-nom</label>
+              {{ form.postnom }}
+              {% if form.postnom.errors %}<div class="text-danger small mt-1">{{ form.postnom.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Nom de famille *</label>
               {{ form.last_name }}
               {% if form.last_name.errors %}<div class="text-danger small mt-1">{{ form.last_name.errors.0 }}</div>{% endif %}
             </div>
-            <div class="col-md-6">
+
+            <!-- Ligne 2 : Genre / Username -->
+            <div class="col-md-4">
+              <label class="form-label">Genre</label>
+              {{ form.genre }}
+              {% if form.genre.errors %}<div class="text-danger small mt-1">{{ form.genre.errors.0 }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
               <label class="form-label">Nom d'utilisateur *</label>
               {{ form.username }}
               {% if form.username.errors %}<div class="text-danger small mt-1">{{ form.username.errors.0 }}</div>{% endif %}
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
+              <label class="form-label">Téléphone</label>
+              {{ form.telephone }}
+            </div>
+
+            <!-- Ligne 3 : Email -->
+            <div class="col-md-8">
               <label class="form-label">Adresse e-mail</label>
               {{ form.email }}
               {% if form.email.errors %}<div class="text-danger small mt-1">{{ form.email.errors.0 }}</div>{% endif %}
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Téléphone</label>
-              {{ form.telephone }}
-            </div>
+
             {% if not obj %}
             <div class="col-12">
               <div class="alert alert-info py-2 small mb-0">

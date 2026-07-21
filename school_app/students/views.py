@@ -1,10 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Student
 from .forms import StudentForm
 from accounts.views import prefet_required
+
+PER_PAGE = 20
 
 
 @login_required
@@ -23,11 +26,15 @@ def student_list(request):
     from classes.models import Classe, AnneeScolaire
     annee = AnneeScolaire.objects.filter(active=True).first()
     classes = Classe.objects.filter(annee_scolaire=annee).select_related('section') if annee else []
+    paginator = Paginator(students, PER_PAGE)
+    page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'students/student_list.html', {
-        'students': students,
+        'students': page_obj,
+        'page_obj': page_obj,
         'classes': classes,
         'q': q,
         'classe_id': classe_id,
+        'total': paginator.count,
     })
 
 

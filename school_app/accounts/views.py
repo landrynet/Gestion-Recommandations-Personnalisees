@@ -170,8 +170,23 @@ def profile_view(request):
 @login_required
 @prefet_required
 def user_list(request):
+    from django.core.paginator import Paginator
+    q = request.GET.get('q', '')
     users = CustomUser.objects.all().order_by('role', 'last_name', 'first_name')
-    return render(request, 'accounts/user_list.html', {'users': users})
+    if q:
+        from django.db.models import Q
+        users = users.filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q) |
+            Q(username__icontains=q) | Q(email__icontains=q)
+        )
+    paginator = Paginator(users, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'accounts/user_list.html', {
+        'users': page_obj,
+        'page_obj': page_obj,
+        'q': q,
+        'total': paginator.count,
+    })
 
 
 @login_required
