@@ -22,7 +22,7 @@
 
 <!-- Statistiques principales -->
 <div class="row g-3 mb-4">
-  <div class="col-6 col-md-4 col-xl-2">
+  <div class="col-6 col-md-4 col-lg-4 col-xl-2">
     <a href="{% url 'student_list' %}" class="text-decoration-none">
       <div class="stat-card">
         <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
@@ -30,7 +30,7 @@
       </div>
     </a>
   </div>
-  <div class="col-6 col-md-4 col-xl-2">
+  <div class="col-6 col-md-4 col-lg-4 col-xl-2">
     <a href="{% url 'teacher_list' %}" class="text-decoration-none">
       <div class="stat-card">
         <div class="stat-icon green"><i class="bi bi-person-badge-fill"></i></div>
@@ -38,7 +38,7 @@
       </div>
     </a>
   </div>
-  <div class="col-6 col-md-4 col-xl-2">
+  <div class="col-6 col-md-4 col-lg-4 col-xl-2">
     <a href="{% url 'classe_list' %}" class="text-decoration-none">
       <div class="stat-card">
         <div class="stat-icon purple"><i class="bi bi-building-fill"></i></div>
@@ -46,7 +46,7 @@
       </div>
     </a>
   </div>
-  <div class="col-6 col-md-4 col-xl-2">
+  <div class="col-6 col-md-4 col-lg-4 col-xl-2">
     <a href="{% url 'matiere_list' %}" class="text-decoration-none">
       <div class="stat-card">
         <div class="stat-icon orange"><i class="bi bi-book-fill"></i></div>
@@ -54,7 +54,7 @@
       </div>
     </a>
   </div>
-  <div class="col-6 col-md-4 col-xl-2">
+  <div class="col-6 col-md-4 col-lg-4 col-xl-2">
     <a href="{% url 'bulletin_list' %}" class="text-decoration-none">
       <div class="stat-card">
         <div class="stat-icon teal"><i class="bi bi-file-earmark-check-fill"></i></div>
@@ -62,7 +62,7 @@
       </div>
     </a>
   </div>
-  <div class="col-6 col-md-4 col-xl-2">
+  <div class="col-6 col-md-4 col-lg-4 col-xl-2">
     <a href="{% url 'bulletin_list' %}" class="text-decoration-none">
       <div class="stat-card">
         <div class="stat-icon" style="background:rgba(249,115,22,0.12);color:#F97316">
@@ -98,7 +98,7 @@
 <div class="row g-4">
 
   <!-- Derniers élèves -->
-  <div class="col-lg-6 col-xl-5">
+  <div class="col-lg-7 col-xl-6">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-people-fill text-primary me-2"></i>Derniers élèves inscrits</span>
@@ -131,31 +131,8 @@
     </div>
   </div>
 
-  <!-- Colonne droite : Horloge + Calendrier -->
-  <div class="col-lg-6 col-xl-3">
-    <!-- Horloge -->
-    <div class="card mb-3">
-      <div class="card-body py-3">
-        <div class="clock-widget">
-          <div class="cw-time" id="dash-time">--:--</div>
-          <div class="cw-date" id="dash-date"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Mini calendrier -->
-    <div class="card">
-      <div class="card-header">
-        <i class="bi bi-calendar3 text-primary me-2"></i>Calendrier
-      </div>
-      <div class="card-body px-3 py-3">
-        <div class="mini-calendar" id="mini-cal"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- Classes -->
-  <div class="col-lg-12 col-xl-4">
+  <div class="col-lg-5 col-xl-4">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-building-fill text-primary me-2"></i>Classes — année en cours</span>
@@ -177,6 +154,31 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Horloge + Calendrier -->
+  <div class="col-sm-6 col-lg-5 col-xl-2">
+    <!-- Horloge -->
+    <div class="card mb-3">
+      <div class="card-body py-3">
+        <div class="clock-widget">
+          <div class="cw-time" id="dash-time">--:--</div>
+          <div class="cw-date" id="dash-date"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mini calendrier -->
+  <div class="col-sm-6 col-lg-7 col-xl-4">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-calendar3 text-primary me-2"></i>Calendrier
+      </div>
+      <div class="card-body px-3 py-3">
+        <div class="mini-calendar" id="mini-cal"></div>
       </div>
     </div>
   </div>

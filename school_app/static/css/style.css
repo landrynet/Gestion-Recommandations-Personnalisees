@@ -1069,9 +1069,36 @@ a:hover { color: var(--color-primary-hover); }
 }
 
 @media (max-width: 575px) {
-  .stat-card { padding: 16px; }
-  .stat-value { font-size: 1.5rem; }
-  .page-title { font-size: 1.1rem; }
+  .stat-card { padding: 14px; gap: 12px; }
+  .stat-icon { width: 44px; height: 44px; font-size: 1.15rem; }
+  .stat-value { font-size: 1.4rem; }
+  .page-title { font-size: 1.05rem; }
+  .card-body { padding: 14px; }
+}
+
+/* ── Large monitors: centre le contenu dans la zone disponible ── */
+.content-wrap {
+  width: 100%;
+}
+
+@media (min-width: 1600px) {
+  .content-wrap {
+    max-width: 1560px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* ── Fix flex overflow sur main-content ── */
+.main-content { min-width: 0; }
+
+/* ── Amélioration stat-cards à la transition md→xl ── */
+/* Force 3-par-ligne entre lg et xl (le breakpoint lg doit être déclaré
+   dans le template via col-lg-4, ceci est le fallback CSS si besoin) */
+
+/* ── Horloge dans une colonne étroite (< 300px) ── */
+@media (max-width: 320px) {
+  .clock-widget .cw-time { font-size: 1.6rem; }
 }
 
 /* =====================================================================
