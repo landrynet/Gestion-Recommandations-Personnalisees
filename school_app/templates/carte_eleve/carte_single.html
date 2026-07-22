@@ -1,274 +1,668 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ titre }}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #e8edf2; font-family: 'Segoe UI', Arial, sans-serif; padding: 2rem; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ titre }}</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+/* =====================================================================
+   BASE
+   ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #e8edf2;
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  padding: 2rem 1rem 3rem;
+  min-height: 100vh;
+}
 
-    .page-actions {
-      max-width: 900px; margin: 0 auto 1.5rem;
-      display: flex; gap: .75rem; align-items: center;
-    }
-    .btn-print { background:#2563EB; color:#fff; border:none; padding:.6rem 1.4rem; border-radius:8px; cursor:pointer; font-size:.9rem; font-weight:600; }
-    .btn-back  { background:#fff; color:#374151; border:1px solid #d1d5db; padding:.6rem 1.4rem; border-radius:8px; cursor:pointer; font-size:.9rem; text-decoration:none; font-weight:600; }
+/* ── Barre d'actions ── */
+.page-actions {
+  max-width: 1400px; margin: 0 auto 1.75rem;
+  display: flex; flex-wrap: wrap; gap: .6rem; align-items: center;
+}
+.btn-back {
+  background: #fff; color: #374151; border: 1px solid #d1d5db;
+  padding: .5rem 1.1rem; border-radius: 8px; cursor: pointer; font-size: .88rem;
+  text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: .4rem;
+  transition: background .15s;
+}
+.btn-back:hover { background: #f9fafb; }
+.page-info { color: #64748b; font-size: .85rem; }
 
-    .cards-grid { max-width:900px; margin:0 auto; display:flex; flex-wrap:wrap; gap:1.5rem; justify-content:center; }
+/* Print dropdown */
+.print-wrap { position: relative; display: inline-block; }
+.btn-print {
+  background: #2563EB; color: #fff; border: none;
+  padding: .5rem 1.1rem; border-radius: 8px 0 0 8px; cursor: pointer;
+  font-size: .88rem; font-weight: 600; display: inline-flex; align-items: center; gap: .4rem;
+}
+.btn-print-toggle {
+  background: #1d4ed8; color: #fff; border: none; border-left: 1px solid rgba(255,255,255,.2);
+  padding: .5rem .65rem; border-radius: 0 8px 8px 0; cursor: pointer; font-size: .85rem;
+}
+.print-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 180px; z-index: 100; overflow: hidden;
+}
+.print-dropdown a {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem 1rem; font-size: .875rem; color: #374151;
+  text-decoration: none; cursor: pointer;
+}
+.print-dropdown a:hover { background: #f1f5f9; }
+.print-wrap.open .print-dropdown { display: block; }
 
-    /* ── Carte PVC (format ISO 7810 ID-1 : 85.6 × 54 mm) ── */
-    .carte-wrapper { display:flex; flex-direction:column; align-items:center; gap:.5rem; }
-    .carte-label   { font-size:.75rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.05em; }
+/* ── Grille de cartes ── */
+.cards-grid {
+  max-width: 1400px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; gap: 2rem; justify-content: center;
+}
 
-    .carte {
-      width: 320px; height: 203px;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 8px 32px rgba(0,0,0,.18);
-      position: relative;
-      flex-shrink: 0;
-    }
+/* ── Flip card container ── */
+.flip-card-outer { display: flex; flex-direction: column; align-items: center; gap: .6rem; }
 
-    /* ────────── RECTO ────────── */
-    .recto {
-      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #1d4ed8 100%);
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-    }
-    .recto-top {
-      background: rgba(255,255,255,.08);
-      padding: .55rem .75rem;
-      display: flex; align-items: center; gap: .5rem;
-      border-bottom: 1px solid rgba(255,255,255,.12);
-    }
-    .recto-top img.logo-school { height: 30px; object-fit: contain; }
-    .recto-top .school-info .name { font-size: .62rem; font-weight: 700; line-height: 1.2; color:#fff; }
-    .recto-top .school-info .sub  { font-size: .54rem; color: rgba(255,255,255,.6); }
+.flip-card {
+  width: 320px; height: 203px;
+  perspective: 1200px;
+  /* Template default colors (override via inline style) */
+  --c1: #1e3a5f;
+  --c2: #2563eb;
+}
 
-    .recto-body { flex:1; display:flex; padding:.55rem .75rem; gap:.6rem; align-items:flex-start; }
+.flip-inner {
+  width: 320px; height: 203px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .55s cubic-bezier(.4, 0, .2, 1);
+  border-radius: 12px;
+}
 
-    .photo-box {
-      width: 60px; height: 72px;
-      border-radius: 6px;
-      overflow: hidden;
-      border: 2px solid rgba(255,255,255,.35);
-      flex-shrink: 0;
-      background: rgba(255,255,255,.1);
-      display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.4);
-    }
-    .photo-box img { width:100%; height:100%; object-fit:cover; }
-    .photo-box .no-photo { font-size: 1.8rem; }
+.flip-card.flipped .flip-inner { transform: rotateY(180deg); }
 
-    .student-info { flex:1; display:flex; flex-direction:column; gap:.3rem; }
-    .student-info .badge-carte {
-      display: inline-block;
-      background: rgba(255,255,255,.15);
-      color: rgba(255,255,255,.9);
-      font-size: .5rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      padding: .15rem .4rem;
-      border-radius: 3px;
-      border: 1px solid rgba(255,255,255,.2);
-      width: fit-content;
-    }
-    .student-info .nom    { font-size: .78rem; font-weight: 800; line-height: 1.25; }
-    .student-info .detail { font-size: .6rem; color: rgba(255,255,255,.7); }
-    .student-info .classe-badge {
-      background: #2563eb; color:#fff;
-      font-size: .6rem; font-weight: 700;
-      padding: .2rem .5rem; border-radius: 4px; width:fit-content;
-      margin-top: .15rem;
-    }
+.flip-front, .flip-back {
+  position: absolute; inset: 0;
+  border-radius: 12px; overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,.18);
+  display: flex; flex-direction: column;
+}
 
-    .qr-box { display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
-    .qr-box img { width:52px; height:52px; border-radius:4px; background:#fff; padding:2px; }
-    .qr-box .scan-label { font-size:.42rem; color:rgba(255,255,255,.55); margin-top:.15rem; text-align:center; }
+.flip-back { transform: rotateY(180deg); }
 
-    .recto-footer {
-      background: rgba(0,0,0,.25);
-      padding: .3rem .75rem;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .recto-footer .mat { font-size: .54rem; color: rgba(255,255,255,.7); font-family: monospace; letter-spacing:.04em; }
-    .recto-footer .annee { font-size: .54rem; color: rgba(255,255,255,.6); }
-    .recto-footer .strip {
-      width: 36px; height: 8px; border-radius:2px;
-      background: linear-gradient(90deg, #facc15, #f59e0b);
-    }
+/* ── Bouton flip ── */
+.flip-btn {
+  background: #fff; color: #374151;
+  border: 1px solid #d1d5db; border-radius: 20px;
+  padding: .3rem .9rem; font-size: .78rem; font-weight: 600;
+  cursor: pointer; display: inline-flex; align-items: center; gap: .35rem;
+  transition: all .15s; user-select: none;
+}
+.flip-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+.flip-btn i { transition: transform .55s; font-size: .85rem; }
+.flip-card.flipped .flip-btn i { transform: rotateY(180deg); }
 
-    /* ────────── VERSO ────────── */
-    .verso {
-      background: #fff;
-      display: flex; flex-direction: column;
-    }
-    .verso-top {
-      height: 28px;
-      background: linear-gradient(90deg, #0f172a, #1d4ed8);
-    }
-    .verso-strip {
-      height: 28px;
-      background: #1a1a2e;
-      margin: .5rem 0;
-      position: relative;
-    }
-    .verso-strip::after {
-      content: 'Signature';
-      position: absolute; right:.75rem; top:50%; transform:translateY(-50%);
-      font-size:.5rem; color:rgba(255,255,255,.4);
-    }
-    .verso-body {
-      flex: 1;
-      padding: .4rem .75rem;
-      display: flex; flex-direction: column; gap: .3rem;
-    }
-    .verso-school { font-size: .7rem; font-weight: 800; color: #0f172a; }
-    .verso-info   { font-size: .58rem; color: #475569; display:flex; align-items:center; gap:.3rem; }
-    .verso-info i { font-size: .65rem; color:#2563eb; }
-    .verso-devise {
-      margin-top:.25rem;
-      font-size: .6rem; font-style: italic; color: #1d4ed8;
-      border-left: 2px solid #2563eb; padding-left: .4rem;
-    }
-    .verso-msg {
-      font-size: .55rem; color: #64748b; line-height: 1.4;
-    }
-    .verso-footer {
-      background: #0f172a; color: rgba(255,255,255,.7);
-      font-size: .5rem; text-align: center; padding: .3rem;
-    }
+/* ── Éléments partagés (recto) ── */
+.cr-top {
+  padding: .5rem .7rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .45rem;
+  flex-shrink: 0;
+}
+.cr-logo-row { display: flex; align-items: center; gap: .45rem; flex: 1; min-width: 0; }
+.cr-logo-img  { height: 28px; object-fit: contain; flex-shrink: 0; }
+.cr-logo-placeholder {
+  width: 28px; height: 28px; border-radius: 4px; flex-shrink: 0;
+  background: rgba(255,255,255,.15); display: flex; align-items: center;
+  justify-content: center; font-size: .9rem;
+}
+.cr-school-name { font-size: .6rem; font-weight: 800; line-height: 1.2; }
+.cr-school-sub  { font-size: .5rem; opacity: .7; line-height: 1.2; margin-top: .05rem; }
+.cr-badge {
+  font-size: .47rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; padding: .18rem .45rem; border-radius: 3px;
+  white-space: nowrap; flex-shrink: 0;
+}
 
-    /* ── Print ── */
-    @media print {
-      body { background: white; padding: .5rem; }
-      .page-actions { display: none !important; }
-      .cards-grid { gap: .5rem; }
-      .carte { box-shadow: none; border: 1px solid #ccc; }
-      .carte-wrapper { page-break-inside: avoid; }
-    }
-  </style>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+.cr-body {
+  flex: 1; display: flex; padding: .5rem .7rem; gap: .55rem;
+  align-items: flex-start; overflow: hidden;
+}
+
+.cr-photo-wrap {
+  width: 58px; height: 70px; border-radius: 6px; overflow: hidden;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; opacity: .5;
+}
+.cr-photo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+
+.cr-info { flex: 1; display: flex; flex-direction: column; gap: .22rem; min-width: 0; }
+.cr-badge-carte {
+  display: inline-block; font-size: .46rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: .14rem .4rem; border-radius: 3px; width: fit-content;
+}
+.cr-name   { font-size: .76rem; font-weight: 800; line-height: 1.2; }
+.cr-prenom { font-size: .58rem; opacity: .8; }
+.cr-detail { font-size: .57rem; opacity: .75; line-height: 1.3; }
+.cr-classe-badge {
+  font-size: .57rem; font-weight: 700;
+  padding: .18rem .45rem; border-radius: 4px; width: fit-content; margin-top: .1rem;
+}
+
+.cr-qr-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.cr-qr-img  { width: 50px; height: 50px; border-radius: 3px; background: #fff; padding: 2px; }
+.cr-qr-lbl  { font-size: .4rem; opacity: .55; margin-top: .15rem; text-align: center; line-height: 1.3; }
+
+.cr-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .28rem .7rem; flex-shrink: 0;
+}
+.cr-foot-mat   { font-size: .52rem; font-family: monospace; letter-spacing: .04em; }
+.cr-foot-annee { font-size: .5rem; }
+.cr-strip      { width: 34px; height: 7px; border-radius: 2px; }
+
+/* ── Éléments partagés (verso) ── */
+.cv-top   { height: 18px; flex-shrink: 0; }
+.cv-strip { height: 20px; flex-shrink: 0; margin: .4rem 0; position: relative; }
+.cv-strip::after {
+  content: 'Signature';
+  position: absolute; right: .75rem; top: 50%; transform: translateY(-50%);
+  font-size: .44rem; opacity: .35;
+}
+.cv-body { flex: 1; padding: .35rem .7rem; display: flex; flex-direction: column; gap: .25rem; overflow: hidden; }
+.cv-school { font-size: .68rem; font-weight: 800; }
+.cv-info   { font-size: .55rem; display: flex; align-items: center; gap: .3rem; }
+.cv-info i { font-size: .6rem; color: var(--c2); }
+.cv-devise { font-size: .58rem; font-style: italic; border-left: 2px solid var(--c2); padding-left: .4rem; margin-top: .15rem; }
+.cv-msg    { font-size: .52rem; opacity: .65; line-height: 1.4; margin-top: .1rem; }
+.cv-sigs   { display: flex; gap: .75rem; margin-top: .25rem; }
+.cv-sig    { display: flex; flex-direction: column; align-items: center; gap: .1rem; }
+.cv-sig img { height: 22px; object-fit: contain; }
+.cv-sig-lbl { font-size: .42rem; opacity: .6; }
+.cv-cachet  { height: 32px; object-fit: contain; opacity: .85; margin-top: .2rem; }
+.cv-footer  { font-size: .46rem; text-align: center; padding: .25rem; flex-shrink: 0; }
+
+/* =====================================================================
+   TEMPLATE : CLASSIQUE
+   ===================================================================== */
+.flip-card.tpl-classique { --c1: #1e3a5f; --c2: #2563eb; }
+
+.tpl-classique .flip-front {
+  background: linear-gradient(135deg, #0f172a 0%, var(--c1) 60%, var(--c2) 100%);
+  color: #fff;
+}
+.tpl-classique .cr-top   { background: rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.12); }
+.tpl-classique .cr-badge { background: rgba(255,255,255,.15); color: rgba(255,255,255,.9); border: 1px solid rgba(255,255,255,.2); }
+.tpl-classique .cr-school-name { color: #fff; }
+.tpl-classique .cr-logo-placeholder { background: rgba(255,255,255,.12); }
+.tpl-classique .cr-badge-carte { background: rgba(255,255,255,.12); color: rgba(255,255,255,.85); border: 1px solid rgba(255,255,255,.2); }
+.tpl-classique .cr-name   { color: #fff; }
+.tpl-classique .cr-detail { color: rgba(255,255,255,.7); }
+.tpl-classique .cr-prenom { color: rgba(255,255,255,.75); }
+.tpl-classique .cr-classe-badge { background: var(--c2); color: #fff; }
+.tpl-classique .cr-photo-wrap { border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); }
+.tpl-classique .cr-foot   { background: rgba(0,0,0,.25); }
+.tpl-classique .cr-foot-mat   { color: rgba(255,255,255,.7); }
+.tpl-classique .cr-foot-annee { color: rgba(255,255,255,.6); }
+.tpl-classique .cr-strip  { background: linear-gradient(90deg, #facc15, #f59e0b); }
+
+.tpl-classique .flip-back { background: #fff; color: #1e293b; }
+.tpl-classique .cv-top    { background: linear-gradient(90deg, #0f172a, var(--c2)); }
+.tpl-classique .cv-strip  { background: #1a1a2e; }
+.tpl-classique .cv-strip::after { color: rgba(255,255,255,.35); }
+.tpl-classique .cv-school { color: var(--c1); }
+.tpl-classique .cv-info   { color: #475569; }
+.tpl-classique .cv-devise { border-left-color: var(--c2); color: var(--c2); }
+.tpl-classique .cv-msg    { color: #64748b; }
+.tpl-classique .cv-footer { background: var(--c1); color: rgba(255,255,255,.6); }
+
+/* =====================================================================
+   TEMPLATE : MODERNE
+   ===================================================================== */
+.flip-card.tpl-moderne { --c1: #1e40af; --c2: #3b82f6; }
+
+.tpl-moderne .flip-front { background: #fff; color: #1e293b; }
+.tpl-moderne .cr-top  { background: var(--c1); border-bottom: none; }
+.tpl-moderne .cr-badge { background: rgba(255,255,255,.2); color: #fff; border: 1px solid rgba(255,255,255,.3); }
+.tpl-moderne .cr-school-name { color: #fff; }
+.tpl-moderne .cr-school-sub  { color: rgba(255,255,255,.75); opacity: 1; }
+.tpl-moderne .cr-logo-placeholder { background: rgba(255,255,255,.18); }
+.tpl-moderne .cr-badge-carte { background: #eff6ff; color: var(--c1); border: 1px solid #bfdbfe; }
+.tpl-moderne .cr-name   { color: #0f172a; }
+.tpl-moderne .cr-prenom { color: #475569; }
+.tpl-moderne .cr-detail { color: #64748b; }
+.tpl-moderne .cr-classe-badge { background: var(--c2); color: #fff; }
+.tpl-moderne .cr-photo-wrap { border: 2px solid var(--c2); border-radius: 50% !important; background: #eff6ff; color: var(--c2); }
+.tpl-moderne .cr-photo-wrap img { border-radius: 50%; }
+.tpl-moderne .cr-foot   { background: #f1f5f9; border-top: 1px solid #e2e8f0; }
+.tpl-moderne .cr-foot-mat   { color: #475569; }
+.tpl-moderne .cr-foot-annee { color: #64748b; }
+.tpl-moderne .cr-strip  { background: var(--c2); }
+
+.tpl-moderne .flip-back  { background: #f8fafc; color: #1e293b; }
+.tpl-moderne .cv-top     { background: var(--c1); }
+.tpl-moderne .cv-strip   { background: #e2e8f0; }
+.tpl-moderne .cv-strip::after { color: #94a3b8; }
+.tpl-moderne .cv-school  { color: var(--c1); }
+.tpl-moderne .cv-info    { color: #475569; }
+.tpl-moderne .cv-devise  { border-left-color: var(--c2); color: var(--c2); }
+.tpl-moderne .cv-msg     { color: #64748b; }
+.tpl-moderne .cv-footer  { background: var(--c1); color: rgba(255,255,255,.7); }
+
+/* =====================================================================
+   TEMPLATE : INSTITUTIONNEL
+   ===================================================================== */
+.flip-card.tpl-institutionnel { --c1: #14532d; --c2: #d97706; }
+
+.tpl-institutionnel .flip-front {
+  background: linear-gradient(160deg, var(--c1) 0%, #1a6b39 100%);
+  color: #fff;
+}
+.tpl-institutionnel .cr-top  { background: rgba(0,0,0,.15); border-bottom: 1px solid var(--c2); }
+.tpl-institutionnel .cr-badge { background: rgba(217,119,6,.25); color: var(--c2); border: 1px solid rgba(217,119,6,.45); }
+.tpl-institutionnel .cr-school-name { color: var(--c2); font-weight: 800; }
+.tpl-institutionnel .cr-logo-placeholder { background: rgba(255,255,255,.12); }
+.tpl-institutionnel .cr-badge-carte { background: rgba(217,119,6,.18); color: var(--c2); border: 1px solid rgba(217,119,6,.4); }
+.tpl-institutionnel .cr-name   { color: #fff; }
+.tpl-institutionnel .cr-prenom { color: rgba(255,255,255,.8); }
+.tpl-institutionnel .cr-detail { color: rgba(255,255,255,.75); }
+.tpl-institutionnel .cr-classe-badge { background: var(--c2); color: #fff; }
+.tpl-institutionnel .cr-photo-wrap { border: 2px solid var(--c2); background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); }
+.tpl-institutionnel .cr-foot   { background: rgba(0,0,0,.3); }
+.tpl-institutionnel .cr-foot-mat   { color: rgba(255,255,255,.75); }
+.tpl-institutionnel .cr-foot-annee { color: rgba(255,255,255,.65); }
+.tpl-institutionnel .cr-strip  { background: linear-gradient(90deg, var(--c2), #fbbf24); }
+
+.tpl-institutionnel .flip-back { background: #fff; color: #1e293b; }
+.tpl-institutionnel .cv-top    { background: linear-gradient(90deg, var(--c1), #1a6b39); }
+.tpl-institutionnel .cv-strip  { background: #1a3a23; }
+.tpl-institutionnel .cv-strip::after { color: rgba(255,255,255,.3); }
+.tpl-institutionnel .cv-school { color: var(--c1); }
+.tpl-institutionnel .cv-info   { color: #475569; }
+.tpl-institutionnel .cv-devise { border-left-color: var(--c2); color: var(--c2); }
+.tpl-institutionnel .cv-msg    { color: #64748b; }
+.tpl-institutionnel .cv-footer { background: var(--c1); color: rgba(255,255,255,.7); }
+
+/* =====================================================================
+   TEMPLATE : MINIMALISTE
+   ===================================================================== */
+.flip-card.tpl-minimaliste {
+  --c1: #111827; --c2: #374151;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08) !important;
+}
+
+.tpl-minimaliste .flip-front { background: #fff; color: #111827; }
+.tpl-minimaliste .flip-front .flip-inner { outline: 1.5px solid #d1d5db; border-radius: 12px; }
+.tpl-minimaliste .cr-top  { background: #fff; border-bottom: 2px solid var(--c1); }
+.tpl-minimaliste .cr-badge { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.tpl-minimaliste .cr-school-name { color: var(--c1); }
+.tpl-minimaliste .cr-school-sub  { color: #6b7280; opacity: 1; }
+.tpl-minimaliste .cr-logo-placeholder { background: #f3f4f6; color: #6b7280; }
+.tpl-minimaliste .cr-badge-carte { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.tpl-minimaliste .cr-name   { color: #111827; }
+.tpl-minimaliste .cr-prenom { color: #374151; }
+.tpl-minimaliste .cr-detail { color: #6b7280; }
+.tpl-minimaliste .cr-classe-badge { background: var(--c1); color: #fff; }
+.tpl-minimaliste .cr-photo-wrap { border: 1.5px solid #d1d5db; background: #f9fafb; color: #9ca3af; }
+.tpl-minimaliste .cr-foot   { background: #f9fafb; border-top: 1px solid #e5e7eb; }
+.tpl-minimaliste .cr-foot-mat   { color: #374151; }
+.tpl-minimaliste .cr-foot-annee { color: #6b7280; }
+.tpl-minimaliste .cr-strip  { background: var(--c1); height: 5px; }
+
+.tpl-minimaliste .flip-back  { background: #fff; color: #111827; }
+.tpl-minimaliste .cv-top     { background: var(--c1); }
+.tpl-minimaliste .cv-strip   { background: #f3f4f6; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+.tpl-minimaliste .cv-strip::after { color: #9ca3af; }
+.tpl-minimaliste .cv-school  { color: var(--c1); }
+.tpl-minimaliste .cv-info    { color: #374151; }
+.tpl-minimaliste .cv-devise  { border-left-color: var(--c1); color: var(--c1); }
+.tpl-minimaliste .cv-msg     { color: #6b7280; }
+.tpl-minimaliste .cv-footer  { background: var(--c1); color: rgba(255,255,255,.7); }
+
+/* =====================================================================
+   TEMPLATE : PREMIUM
+   ===================================================================== */
+.flip-card.tpl-premium { --c1: #1c1917; --c2: #d97706; }
+
+.tpl-premium .flip-front {
+  background: linear-gradient(135deg, var(--c1) 0%, #292524 70%, #3b3330 100%);
+  color: #fef3c7;
+}
+.tpl-premium .cr-top  { background: rgba(0,0,0,.2); border-bottom: 1px solid rgba(217,119,6,.5); }
+.tpl-premium .cr-badge { background: rgba(217,119,6,.2); color: var(--c2); border: 1px solid rgba(217,119,6,.5); }
+.tpl-premium .cr-school-name { color: var(--c2); letter-spacing: .02em; }
+.tpl-premium .cr-school-sub  { color: rgba(254,243,199,.6); opacity: 1; }
+.tpl-premium .cr-logo-placeholder { background: rgba(255,255,255,.08); }
+.tpl-premium .cr-badge-carte { background: rgba(217,119,6,.15); color: var(--c2); border: 1px solid rgba(217,119,6,.4); }
+.tpl-premium .cr-name   { color: #fef3c7; }
+.tpl-premium .cr-prenom { color: rgba(254,243,199,.75); }
+.tpl-premium .cr-detail { color: rgba(254,243,199,.65); }
+.tpl-premium .cr-classe-badge { background: var(--c2); color: var(--c1); font-weight: 800; }
+.tpl-premium .cr-photo-wrap { border: 2px solid var(--c2); background: rgba(255,255,255,.04); color: rgba(254,243,199,.35); box-shadow: 0 0 0 1px rgba(217,119,6,.25); }
+.tpl-premium .cr-foot   { background: rgba(0,0,0,.35); border-top: 1px solid rgba(217,119,6,.3); }
+.tpl-premium .cr-foot-mat   { color: rgba(254,243,199,.65); }
+.tpl-premium .cr-foot-annee { color: rgba(254,243,199,.6); }
+.tpl-premium .cr-strip  { background: linear-gradient(90deg, var(--c2), #fbbf24); }
+
+.tpl-premium .flip-back { background: linear-gradient(160deg, var(--c1) 0%, #292524 100%); color: #fef3c7; }
+.tpl-premium .cv-top    { background: rgba(0,0,0,.25); border-bottom: 1px solid rgba(217,119,6,.4); }
+.tpl-premium .cv-strip  { background: rgba(0,0,0,.3); border-top: 1px solid rgba(217,119,6,.25); border-bottom: 1px solid rgba(217,119,6,.25); }
+.tpl-premium .cv-strip::after { color: rgba(254,243,199,.25); }
+.tpl-premium .cv-school { color: var(--c2); font-weight: 700; }
+.tpl-premium .cv-info   { color: rgba(254,243,199,.7); }
+.tpl-premium .cv-info i { color: var(--c2); }
+.tpl-premium .cv-devise { border-left-color: var(--c2); color: var(--c2); }
+.tpl-premium .cv-msg    { color: rgba(254,243,199,.5); }
+.tpl-premium .cv-footer { background: rgba(0,0,0,.4); border-top: 1px solid rgba(217,119,6,.3); color: rgba(254,243,199,.45); }
+
+/* =====================================================================
+   IMPRESSION
+   ===================================================================== */
+@media print {
+  body { background: white; padding: 8mm; }
+  .page-actions { display: none !important; }
+  .flip-btn { display: none !important; }
+
+  .cards-grid {
+    display: flex; flex-wrap: wrap;
+    gap: 4mm 5mm; justify-content: flex-start;
+  }
+  .flip-card-outer { gap: 0; }
+  .flip-card {
+    width: 85.6mm; height: 54mm;
+    perspective: none;
+    page-break-inside: avoid;
+  }
+  .flip-inner {
+    width: 85.6mm; height: 54mm;
+    transform: none !important;
+    transition: none !important;
+    position: relative;
+  }
+  .flip-front {
+    position: relative; inset: auto;
+    width: 85.6mm; height: 54mm;
+    box-shadow: none; border: 0.3mm solid #ccc;
+    border-radius: 3mm;
+    backface-visibility: visible;
+  }
+  .flip-back {
+    transform: none;
+    position: relative; inset: auto;
+    width: 85.6mm; height: 54mm;
+    box-shadow: none; border: 0.3mm solid #ccc;
+    border-radius: 3mm;
+    backface-visibility: visible;
+    display: none; /* recto seul par défaut */
+    margin-top: 3mm;
+  }
+  body.print-verso .flip-back  { display: flex; }
+  body.print-verso .flip-front { display: none; }
+  body.print-both  .flip-back  { display: flex; }
+  body.print-both  .flip-card-outer { page-break-inside: avoid; }
+
+  /* Forcer tailles de police adaptées à 85.6mm */
+  .cr-school-name { font-size: 5pt; }
+  .cr-school-sub  { font-size: 4pt; }
+  .cr-badge       { font-size: 3.5pt; }
+  .cr-badge-carte { font-size: 3.5pt; }
+  .cr-name        { font-size: 6pt; }
+  .cr-prenom      { font-size: 4.5pt; }
+  .cr-detail      { font-size: 4.2pt; }
+  .cr-classe-badge { font-size: 4.2pt; }
+  .cr-qr-img      { width: 38pt; height: 38pt; }
+  .cr-photo-wrap  { width: 44pt; height: 52pt; }
+  .cr-foot-mat    { font-size: 4pt; }
+  .cr-foot-annee  { font-size: 3.8pt; }
+  .cv-school      { font-size: 5.5pt; }
+  .cv-info        { font-size: 4pt; }
+  .cv-devise      { font-size: 4.5pt; }
+  .cv-msg         { font-size: 3.8pt; }
+  .cv-footer      { font-size: 3.5pt; }
+}
+</style>
 </head>
 <body>
 
+<!-- ── Barre d'actions ── -->
 <div class="page-actions">
-  <button class="btn-print" onclick="window.print()">
-    <i class="bi bi-printer me-1"></i>Imprimer
-  </button>
+  <!-- Retour -->
   <a href="javascript:history.back()" class="btn-back">
-    <i class="bi bi-arrow-left me-1"></i>Retour
+    <i class="bi bi-arrow-left"></i> Retour
   </a>
-  <span style="color:#64748b;font-size:.85rem">
+
+  <!-- Bouton d'impression avec dropdown -->
+  <div class="print-wrap" id="printWrap">
+    <button class="btn-print" onclick="doPrint('recto')">
+      <i class="bi bi-printer"></i> Imprimer
+    </button>
+    <button class="btn-print-toggle" onclick="togglePrintMenu()" title="Options d'impression">
+      <i class="bi bi-chevron-down"></i>
+    </button>
+    <div class="print-dropdown" id="printMenu">
+      <a onclick="doPrint('recto')">
+        <i class="bi bi-credit-card-2-front" style="color:#2563eb"></i> Recto uniquement
+      </a>
+      <a onclick="doPrint('verso')">
+        <i class="bi bi-credit-card-2-back" style="color:#7c3aed"></i> Verso uniquement
+      </a>
+      <a onclick="doPrint('both')">
+        <i class="bi bi-layers" style="color:#059669"></i> Recto + Verso
+      </a>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <span class="page-info">
     {{ titre }}
     {% if nb_pages and nb_pages > 1 %}
-      — Lot {{ page }}/{{ nb_pages }} ({{ eleves_data|length }} cartes)
+      &mdash; Lot {{ page }}/{{ nb_pages }} ({{ eleves_data|length }} cartes sur {{ total }})
     {% else %}
-      — {{ eleves_data|length }} carte(s)
+      &mdash; {{ eleves_data|length }} carte{% if eleves_data|length > 1 %}s{% endif %}
     {% endif %}
   </span>
+
+  <!-- Pagination (lot suivant/précédent) -->
   {% if nb_pages and nb_pages > 1 %}
-    <div style="display:flex;gap:.5rem;margin-left:auto;align-items:center">
-      {% if page_precedente %}
-        <a href="?page={{ page_precedente }}" class="btn-back" style="padding:.4rem .9rem">
-          <i class="bi bi-chevron-left"></i> Lot précédent
-        </a>
-      {% endif %}
-      {% if page_suivante %}
-        <a href="?page={{ page_suivante }}" class="btn-back" style="padding:.4rem .9rem">
-          Lot suivant <i class="bi bi-chevron-right"></i>
-        </a>
-      {% endif %}
-    </div>
+  <div style="display:flex;gap:.4rem;margin-left:auto;align-items:center">
+    {% if page_precedente %}
+      <a href="?page={{ page_precedente }}" class="btn-back" style="padding:.4rem .8rem">
+        <i class="bi bi-chevron-left"></i> Précédent
+      </a>
+    {% endif %}
+    {% if page_suivante %}
+      <a href="?page={{ page_suivante }}" class="btn-back" style="padding:.4rem .8rem">
+        Suivant <i class="bi bi-chevron-right"></i>
+      </a>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
 
+<!-- ── Grille de cartes ── -->
 <div class="cards-grid">
+
 {% for item in eleves_data %}
-{% with eleve=item.eleve qr=item.qr_b64 %}
-<div class="carte-wrapper">
+{% with e=item.eleve qr=item.qr_b64 %}
+<div class="flip-card-outer">
 
-  <!-- RECTO -->
-  <div class="carte-label">Recto</div>
-  <div class="carte recto">
+  <div class="flip-card tpl-{{ config.modele }}"
+       id="fc-{{ e.pk }}"
+       style="--c1:{{ config.couleur_principale }};--c2:{{ config.couleur_secondaire }}">
+    <div class="flip-inner">
 
-    <!-- En-tête école -->
-    <div class="recto-top">
-      {% if school.logo %}
-        <img src="{{ school.logo.url }}" alt="Logo" class="logo-school">
-      {% else %}
-        <div style="width:30px;height:30px;background:rgba(255,255,255,.15);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:.9rem;">🏫</div>
-      {% endif %}
-      <div class="school-info">
-        <div class="name">{{ school.nom }}</div>
-        <div class="sub">{{ school.ville }} — {{ school.province }}</div>
-      </div>
-    </div>
+      <!-- ────────── RECTO ────────── -->
+      <div class="flip-front">
 
-    <!-- Corps -->
-    <div class="recto-body">
-      <!-- Photo -->
-      <div class="photo-box">
-        {% if eleve.photo %}
-          <img src="{{ eleve.photo.url }}" alt="Photo">
-        {% else %}
-          <span class="no-photo">👤</span>
-        {% endif %}
-      </div>
+        <!-- En-tête établissement -->
+        <div class="cr-top">
+          <div class="cr-logo-row">
+            {% with logo=config.logo_override|default:school.logo %}
+              {% if logo %}
+                <img src="{{ logo.url }}" alt="Logo" class="cr-logo-img">
+              {% else %}
+                <div class="cr-logo-placeholder">🏫</div>
+              {% endif %}
+            {% endwith %}
+            <div>
+              <div class="cr-school-name">{{ school.nom }}</div>
+              <div class="cr-school-sub">{{ school.ville }}{% if school.province %} — {{ school.province }}{% endif %}</div>
+            </div>
+          </div>
+          <div class="cr-badge">Carte scolaire</div>
+        </div>
 
-      <!-- Infos élève -->
-      <div class="student-info">
-        <span class="badge-carte">Carte scolaire</span>
-        <div class="nom">{{ eleve.nom }} {{ eleve.postnom }}</div>
-        {% if eleve.prenom %}<div class="detail">{{ eleve.prenom }}</div>{% endif %}
-        {% if eleve.classe %}
-          <div class="classe-badge">{{ eleve.classe }}</div>
-          <div class="detail" style="margin-top:.1rem">{{ eleve.classe.section }}</div>
-        {% endif %}
-      </div>
+        <!-- Corps -->
+        <div class="cr-body">
 
-      <!-- QR Code -->
-      <div class="qr-box">
-        <img src="data:image/png;base64,{{ qr }}" alt="QR Code">
-        <div class="scan-label">Scanner pour<br>les résultats</div>
-      </div>
-    </div>
+          {% if config.afficher_photo %}
+          <div class="cr-photo-wrap">
+            {% if e.photo %}
+              <img src="{{ e.photo.url }}" alt="Photo {{ e.nom_complet }}">
+            {% else %}
+              <i class="bi bi-person-fill"></i>
+            {% endif %}
+          </div>
+          {% endif %}
 
-    <!-- Pied -->
-    <div class="recto-footer">
-      <span class="mat">{{ eleve.matricule }}</span>
-      <div class="strip"></div>
-      <span class="annee">{% if annee %}{{ annee }}{% endif %}</span>
-    </div>
-  </div>
+          <!-- Informations élève -->
+          <div class="cr-info">
+            <span class="cr-badge-carte">Élève</span>
+            <div class="cr-name">{{ e.nom }} {{ e.postnom }}</div>
+            {% if e.prenom %}
+              <div class="cr-prenom">{{ e.prenom }}</div>
+            {% endif %}
+            {% if config.afficher_classe and e.classe %}
+              <div class="cr-classe-badge">{{ e.classe }}</div>
+              {% if e.classe.section %}
+                <div class="cr-detail">{{ e.classe.section }}</div>
+              {% endif %}
+            {% endif %}
+            {% if config.afficher_ddn %}
+              <div class="cr-detail"><i class="bi bi-calendar3" style="font-size:.5rem;opacity:.7"></i> {{ e.date_naissance|date:"d/m/Y" }}</div>
+            {% endif %}
+            {% if config.afficher_sexe %}
+              <div class="cr-detail">{{ e.get_sexe_display }}</div>
+            {% endif %}
+          </div>
 
-  <!-- VERSO -->
-  <div class="carte-label" style="margin-top:.75rem">Verso</div>
-  <div class="carte verso">
-    <div class="verso-top"></div>
-    <div class="verso-strip"></div>
-    <div class="verso-body">
-      <div class="verso-school">{{ school.nom }}</div>
-      <div class="verso-info"><i class="bi bi-geo-alt-fill"></i>{{ school.commune }}, {{ school.ville }}, {{ school.province }}</div>
-      {% if school.code %}
-        <div class="verso-info"><i class="bi bi-hash"></i>Code : {{ school.code }}</div>
-      {% endif %}
-      <div class="verso-devise">Le savoir, la discipline et le travail</div>
-      <div class="verso-msg mt-1">
-        En cas de perte, prière de retourner cette carte à l'établissement.
-        Cette carte est valable pour toute la durée de la scolarité de l'élève.
-      </div>
-    </div>
-    <div class="verso-footer">{{ school.nom }} &mdash; Année {{ annee }}</div>
-  </div>
+          {% if config.afficher_qr %}
+          <div class="cr-qr-wrap">
+            <img src="data:image/png;base64,{{ qr }}" alt="QR Code" class="cr-qr-img">
+            <div class="cr-qr-lbl">Scanner<br>les résultats</div>
+          </div>
+          {% endif %}
 
-</div>
+        </div><!-- /cr-body -->
+
+        <!-- Pied de carte -->
+        <div class="cr-foot">
+          {% if config.afficher_matricule %}
+            <span class="cr-foot-mat">{{ e.matricule }}</span>
+          {% else %}
+            <span></span>
+          {% endif %}
+          <div class="cr-strip"></div>
+          {% if config.afficher_annee %}
+            <span class="cr-foot-annee">{% if annee %}{{ annee }}{% endif %}</span>
+          {% else %}
+            <span></span>
+          {% endif %}
+        </div>
+
+      </div><!-- /flip-front -->
+
+      <!-- ────────── VERSO ────────── -->
+      <div class="flip-back">
+        <div class="cv-top"></div>
+        <div class="cv-strip"></div>
+        <div class="cv-body">
+          <div class="cv-school">{{ school.nom }}</div>
+          <div class="cv-info">
+            <i class="bi bi-geo-alt-fill"></i>
+            {{ school.commune }}{% if school.ville %}, {{ school.ville }}{% endif %}{% if school.province %}, {{ school.province }}{% endif %}
+          </div>
+          {% if school.code %}
+            <div class="cv-info"><i class="bi bi-hash"></i>Code : {{ school.code }}</div>
+          {% endif %}
+
+          {% if config.devise %}
+            <div class="cv-devise">{{ config.devise }}</div>
+          {% endif %}
+
+          <div class="cv-msg">
+            En cas de perte, prière de retourner cette carte à l'établissement.<br>
+            Valable pour l'année {% if annee %}{{ annee }}{% endif %}.
+          </div>
+
+          {% if config.signature_prefet or config.signature_directeur %}
+          <div class="cv-sigs">
+            {% if config.signature_directeur %}
+              <div class="cv-sig">
+                <img src="{{ config.signature_directeur.url }}" alt="Signature">
+                <div class="cv-sig-lbl">Le Directeur</div>
+              </div>
+            {% endif %}
+            {% if config.signature_prefet %}
+              <div class="cv-sig">
+                <img src="{{ config.signature_prefet.url }}" alt="Signature">
+                <div class="cv-sig-lbl">Le Préfet</div>
+              </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if config.cachet %}
+            <img src="{{ config.cachet.url }}" alt="Cachet" class="cv-cachet">
+          {% endif %}
+        </div>
+        <div class="cv-footer">{{ school.nom }} &mdash; {% if annee %}{{ annee }}{% endif %}</div>
+      </div><!-- /flip-back -->
+
+    </div><!-- /flip-inner -->
+  </div><!-- /flip-card -->
+
+  <!-- Bouton flip (masqué à l'impression) -->
+  <button class="flip-btn" onclick="flipCard('fc-{{ e.pk }}', this)">
+    <i class="bi bi-arrow-repeat"></i> Voir le verso
+  </button>
+
+</div><!-- /flip-card-outer -->
 {% endwith %}
 {% endfor %}
-</div>
+
+</div><!-- /cards-grid -->
+
+<script>
+/* Flip */
+function flipCard(id, btn) {
+  var card = document.getElementById(id);
+  var flipped = card.classList.toggle('flipped');
+  btn.innerHTML = flipped
+    ? '<i class="bi bi-arrow-left-short"></i> Retour au recto'
+    : '<i class="bi bi-arrow-repeat"></i> Voir le verso';
+}
+
+/* Print dropdown */
+function togglePrintMenu() {
+  document.getElementById('printWrap').classList.toggle('open');
+}
+document.addEventListener('click', function (e) {
+  var wrap = document.getElementById('printWrap');
+  if (!wrap.contains(e.target)) wrap.classList.remove('open');
+});
+
+/* Print mode */
+function doPrint(mode) {
+  document.getElementById('printWrap').classList.remove('open');
+  document.body.classList.remove('print-recto', 'print-verso', 'print-both');
+  document.body.classList.add('print-' + mode);
+  window.print();
+}
+</script>
 
 </body>
 </html>
